@@ -286,15 +286,25 @@
         return value;
       }
 
-      float star(vec2 uv, vec2 cellId, float cellAspect) {
+      mat3 createRotationMatrixAxisAngle(vec3 axis, float angle);
+
+      vec2 dirToScreenUV(vec3 dir) {
+        vec3 unrotated = createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), 0.05) * dir;
+        if (unrotated.z <= 0.0) return vec2(-1.0);
+        vec2 uv = (unrotated.xy / unrotated.z) * 1.5;
+        vec2 ndc = uv / vec2(iResolution.x / iResolution.y, 1.0);
+        return ndc * 0.5 + 0.5;
+      }
+
+      float star(vec2 screenUv, vec2 cellId, vec2 grid) {
         float rnd = hash21(cellId);
-        if (rnd > 0.7) return 0.0;
+        if (rnd > 0.9) return 0.0;
         vec2 starPos = vec2(hash21(cellId + 0.1), hash21(cellId + 0.2));
-        vec2 diff = uv - starPos;
-        diff.x *= cellAspect;
-        float d = length(diff);
-        float size = 0.007 + hash21(cellId + 0.3) * 0.014;
-        float core = smoothstep(size, size * 0.1, d);
+        vec2 starUv = (cellId + starPos) / grid;
+        vec2 deltaPx = (screenUv - starUv) * iResolution.xy;
+        float sizePx = 0.3 + hash21(cellId + 0.3) * 0.25;
+        float d = length(deltaPx);
+        float core = smoothstep(sizePx, sizePx * 0.2, d);
         float flickerPhase = hash21(cellId + 0.4) * 6.28318;
         float flickerSpeed = 0.2 + hash21(cellId + 0.5) * 0.3;
         float flicker = 0.75 + 0.25 * sin(iTime * flickerSpeed + flickerPhase);
@@ -466,38 +476,48 @@
         vec3 bottomColor = vec3(0.03, 0.035, 0.05);
         vec3 color = mix(bottomColor, topColor, uv.y);
 
-        if (uv.y > 0.35) {
-          float gridX = 18.0;
-          float gridY = 13.0;
-          vec2 cellId = floor(vec2(uv.x * gridX, uv.y * gridY));
-          vec2 cellUv = fract(vec2(uv.x * gridX, uv.y * gridY));
-          float aspect = iResolution.x / iResolution.y;
-          float cellAspect = (aspect / gridX) / (1.0 / gridY);
-          float s = star(cellUv, cellId, cellAspect);
-          float horizonFade = smoothstep(0.35, 0.55, uv.y);
-          vec3 starColor = vec3(1.0, 0.97, 0.9);
-          color += starColor * s * horizonFade;
-        }
+        vec2 screenUv = dirToScreenUV(dir);
+        if (screenUv.x >= 0.0 && screenUv.x <= 1.0 && screenUv.y >= 0.0 && screenUv.y <= 1.0) {
+          if (screenUv.y > 0.35) {
+            float gridX = 40.0;
+            float gridY = 30.0;
+            vec2 grid = vec2(gridX, gridY);
+            vec2 baseCell = floor(vec2(screenUv.x * gridX, screenUv.y * gridY));
+            float s = 0.0;
+            for (int yi = -1; yi <= 1; yi++) {
+              for (int xi = -1; xi <= 1; xi++) {
+                vec2 cell = baseCell + vec2(float(xi), float(yi));
+                if (cell.y < 0.0 || cell.y >= gridY) continue;
+                cell.x = mod(cell.x + gridX, gridX);
+                s += star(screenUv, cell, grid);
+              }
+            }
+            float horizonFade = smoothstep(0.35, 0.55, screenUv.y);
+            vec3 starColor = vec3(1.0, 0.97, 0.9);
+            color += starColor * s * horizonFade;
+          }
 
-        vec3 moonDir = normalize(vec3(0.12, 0.38, 0.85));
-        float moonRadius = 0.067;
-        float moonDot = dot(dir, moonDir);
-        float moonEdge = smoothstep(cos(moonRadius), cos(moonRadius * 0.88), moonDot);
-        if (moonEdge > 0.0) {
-          vec3 moonRight = normalize(cross(vec3(0.0, 1.0, 0.0), moonDir));
-          vec3 moonUp = normalize(cross(moonDir, moonRight));
-          vec2 moonUv = vec2(dot(dir, moonRight), dot(dir, moonUp)) / sin(moonRadius);
-          float dist = length(moonUv);
-          float limb = smoothstep(1.0, 0.45, dist);
-          float crater = fbm(moonUv * 7.0) + 0.5 * fbm(moonUv * 16.0);
-          crater = smoothstep(0.3, 0.85, crater);
-          vec3 moonNormal = normalize(moonDir + moonRight * moonUv.x + moonUp * moonUv.y);
-          vec3 moonLightDir = normalize(vec3(0.1, 0.35, 0.9));
-          float moonLight = clamp(dot(moonNormal, moonLightDir), 0.0, 1.0);
-          vec3 moonColor = vec3(1.2, 1.15, 1.05) * (0.7 + 0.5 * moonLight) * 3.0;
-          moonColor *= mix(1.0, 0.6, crater);
-          moonColor *= limb;
-          color += moonColor * moonEdge;
+          vec3 moonDir = normalize(vec3(0.12, 0.38, 0.85));
+          vec2 moonScreenUv = dirToScreenUV(moonDir);
+          if (moonScreenUv.x >= 0.0 && moonScreenUv.x <= 1.0 && moonScreenUv.y >= 0.0 && moonScreenUv.y <= 1.0) {
+            vec2 moonDeltaPx = (screenUv - moonScreenUv) * iResolution.xy;
+            float moonRadiusPx = min(iResolution.x, iResolution.y) * 0.042;
+            float dist = length(moonDeltaPx);
+            float moonEdge = smoothstep(moonRadiusPx, moonRadiusPx * 0.85, dist);
+            if (moonEdge > 0.0) {
+              vec2 moonUv = moonDeltaPx / moonRadiusPx;
+              float limb = smoothstep(1.0, 0.45, length(moonUv));
+              float crater = fbm(moonUv * 7.0) + 0.5 * fbm(moonUv * 16.0);
+              crater = smoothstep(0.3, 0.85, crater);
+              vec3 moonNormal = normalize(vec3(moonUv, sqrt(max(0.0, 1.0 - dot(moonUv, moonUv)))));
+              vec3 moonLightDir = normalize(vec3(0.2, 0.25, 0.9));
+              float moonLight = clamp(dot(moonNormal, moonLightDir), 0.0, 1.0);
+              vec3 moonColor = vec3(1.2, 1.15, 1.05) * (0.7 + 0.5 * moonLight) * 6.0;
+              moonColor *= mix(1.0, 0.6, crater);
+              moonColor *= limb;
+              color += moonColor * moonEdge;
+            }
+          }
         }
 
         color += vec3(1.0) * skyLight * 1.4 * u_ambientIntensity;
