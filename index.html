@@ -77,6 +77,22 @@
     const logo = document.getElementById('logo');
     const gl = canvas.getContext('webgl');
 
+    const colorSchemeQuery = window.matchMedia
+      ? window.matchMedia('(prefers-color-scheme: dark)')
+      : null;
+    let prefersNight = colorSchemeQuery ? colorSchemeQuery.matches : false;
+
+    if (colorSchemeQuery) {
+      const onSchemeChange = (event) => {
+        prefersNight = event.matches;
+      };
+      if (colorSchemeQuery.addEventListener) {
+        colorSchemeQuery.addEventListener('change', onSchemeChange);
+      } else if (colorSchemeQuery.addListener) {
+        colorSchemeQuery.addListener(onSchemeChange);
+      }
+    }
+
     const vertexShaderSource = `
       attribute vec2 position;
       void main() {
@@ -101,6 +117,7 @@
       uniform sampler2D u_image;
       uniform vec2 u_resolution;
       uniform float u_time;
+      uniform float u_night;
       varying vec2 v_texCoord;
 
       #define INTENSITY 0.18
@@ -127,12 +144,13 @@
         
         // Apply grain (addition blend mode)
         vec3 grain = vec3(noise) * (1.0 - vec3(gray));
-        gray = gray + grain.r * INTENSITY;
+        float grainIntensity = mix(INTENSITY, 0.05, u_night);
+        gray = gray + grain.r * grainIntensity;
         gray = clamp(gray, 0.0, 1.0);
         
         // Map to color palette
-        vec3 dark = vec3(0.235);   // #3c3c3c
-        vec3 light = vec3(0.836);  // #d5d5d5
+        vec3 dark = mix(vec3(0.235), vec3(0.02), u_night);   // #3c3c3c -> #050505
+        vec3 light = mix(vec3(0.836), vec3(1.0), u_night);   // #d5d5d5 -> #ffffff
         gl_FragColor = vec4(mix(dark, light, gray), 1.0);
       }
     `;
@@ -227,6 +245,8 @@
       uniform float u_logoFade;
       uniform vec4 u_ripples[10]; // (worldX, worldZ, birthTime, amplitude)
       uniform int u_rippleCount;
+      uniform float u_night;
+      uniform float u_ambientIntensity;
 
       // afl_ext 2017-2024
       // MIT License
@@ -238,6 +258,48 @@
       #define ITERATIONS_RAYMARCH 8
       #define ITERATIONS_NORMAL 16
       #define LOGO_INTENSITY 3.5
+
+      float hash21(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+
+      float noise21(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = hash21(i);
+        float b = hash21(i + vec2(1.0, 0.0));
+        float c = hash21(i + vec2(0.0, 1.0));
+        float d = hash21(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+
+      float fbm(vec2 p) {
+        float value = 0.0;
+        float amplitude = 0.5;
+        float frequency = 1.0;
+        for (int i = 0; i < 4; i++) {
+          value += amplitude * noise21(p * frequency);
+          frequency *= 2.0;
+          amplitude *= 0.5;
+        }
+        return value;
+      }
+
+      float star(vec2 uv, vec2 cellId, float cellAspect) {
+        float rnd = hash21(cellId);
+        if (rnd > 0.7) return 0.0;
+        vec2 starPos = vec2(hash21(cellId + 0.1), hash21(cellId + 0.2));
+        vec2 diff = uv - starPos;
+        diff.x *= cellAspect;
+        float d = length(diff);
+        float size = 0.007 + hash21(cellId + 0.3) * 0.014;
+        float core = smoothstep(size, size * 0.1, d);
+        float flickerPhase = hash21(cellId + 0.4) * 6.28318;
+        float flickerSpeed = 0.2 + hash21(cellId + 0.5) * 0.3;
+        float flicker = 0.75 + 0.25 * sin(iTime * flickerSpeed + flickerPhase);
+        return core * flicker;
+      }
 
       vec2 wavedx(vec2 position, vec2 direction, float frequency, float timeshift) {
         float x = dot(direction, position) * frequency + timeshift;
@@ -394,6 +456,54 @@
         return vec2(u, v);
       }
 
+      vec3 getDaySky(vec3 dir, float skyLight) {
+        return getAtmosphere(dir) + vec3(1.0) * skyLight * 4.0 * u_ambientIntensity;
+      }
+
+      vec3 getNightSky(vec3 dir, float skyLight) {
+        vec2 uv = skyUV(dir);
+        vec3 topColor = vec3(0.015, 0.02, 0.04);
+        vec3 bottomColor = vec3(0.03, 0.035, 0.05);
+        vec3 color = mix(bottomColor, topColor, uv.y);
+
+        if (uv.y > 0.35) {
+          float gridX = 18.0;
+          float gridY = 13.0;
+          vec2 cellId = floor(vec2(uv.x * gridX, uv.y * gridY));
+          vec2 cellUv = fract(vec2(uv.x * gridX, uv.y * gridY));
+          float aspect = iResolution.x / iResolution.y;
+          float cellAspect = (aspect / gridX) / (1.0 / gridY);
+          float s = star(cellUv, cellId, cellAspect);
+          float horizonFade = smoothstep(0.35, 0.55, uv.y);
+          vec3 starColor = vec3(1.0, 0.97, 0.9);
+          color += starColor * s * horizonFade;
+        }
+
+        vec3 moonDir = normalize(vec3(0.12, 0.38, 0.85));
+        float moonRadius = 0.067;
+        float moonDot = dot(dir, moonDir);
+        float moonEdge = smoothstep(cos(moonRadius), cos(moonRadius * 0.88), moonDot);
+        if (moonEdge > 0.0) {
+          vec3 moonRight = normalize(cross(vec3(0.0, 1.0, 0.0), moonDir));
+          vec3 moonUp = normalize(cross(moonDir, moonRight));
+          vec2 moonUv = vec2(dot(dir, moonRight), dot(dir, moonUp)) / sin(moonRadius);
+          float dist = length(moonUv);
+          float limb = smoothstep(1.0, 0.45, dist);
+          float crater = fbm(moonUv * 7.0) + 0.5 * fbm(moonUv * 16.0);
+          crater = smoothstep(0.3, 0.85, crater);
+          vec3 moonNormal = normalize(moonDir + moonRight * moonUv.x + moonUp * moonUv.y);
+          vec3 moonLightDir = normalize(vec3(0.1, 0.35, 0.9));
+          float moonLight = clamp(dot(moonNormal, moonLightDir), 0.0, 1.0);
+          vec3 moonColor = vec3(1.2, 1.15, 1.05) * (0.7 + 0.5 * moonLight) * 3.0;
+          moonColor *= mix(1.0, 0.6, crater);
+          moonColor *= limb;
+          color += moonColor * moonEdge;
+        }
+
+        color += vec3(1.0) * skyLight * 1.4 * u_ambientIntensity;
+        return color;
+      }
+
       float sampleLogo(vec2 uv) {
         vec2 local = (uv - u_logoCenter) / u_logoSize + 0.5;
         float inside = step(0.0, local.x) * step(local.x, 1.0) * step(0.0, local.y) * step(local.y, 1.0);
@@ -422,7 +532,9 @@
         vec3 ray = getRay(fragCoord);
         if(ray.y >= 0.0) {
           float skyLight = texture2D(u_light, skyUV(ray)).r;
-          vec3 C = getAtmosphere(ray) + vec3(1.0) * skyLight * 4.0;
+          vec3 daySky = getDaySky(ray, skyLight);
+          vec3 nightSky = getNightSky(ray, skyLight);
+          vec3 C = mix(daySky, nightSky, u_night);
           fragColor = vec4(aces_tonemap(C * 2.0), 1.0);   
           return;
         }
@@ -449,13 +561,16 @@
         
         float reflectedLight = texture2D(u_light, skyUV(R)).r;
         float reflectedLogo = sampleLogo(skyUV(R));
-        vec3 reflection = getAtmosphere(R) + vec3(1.0) * (reflectedLight * 4.0 + reflectedLogo * LOGO_INTENSITY);
-        vec3 scattering = vec3(0.08, 0.08, 0.09) * (0.2 + (waterHitPos.y + WATER_DEPTH) / WATER_DEPTH);
+        vec3 dayReflection = getDaySky(R, reflectedLight);
+        vec3 nightReflection = getNightSky(R, reflectedLight);
+        vec3 reflection = mix(dayReflection, nightReflection, u_night) + vec3(1.0) * (reflectedLogo * LOGO_INTENSITY);
+        vec3 scatteringBase = mix(vec3(0.08, 0.08, 0.09), vec3(0.02, 0.02, 0.03), u_night);
+        vec3 scattering = scatteringBase * (0.2 + (waterHitPos.y + WATER_DEPTH) / WATER_DEPTH);
 
         vec3 C = fresnel * reflection + scattering;
         
         // Add distance fog
-        vec3 fogColor = vec3(0.55, 0.55, 0.58);
+        vec3 fogColor = mix(vec3(0.55, 0.55, 0.58), vec3(0.03, 0.035, 0.05), u_night);
         float fogAmount = 1.0 - exp(-dist * 0.02);
         C = mix(C, fogColor, fogAmount);
         
@@ -514,6 +629,8 @@
     const logoFadeLocation = gl.getUniformLocation(program, 'u_logoFade');
     const ripplesLocation = gl.getUniformLocation(program, 'u_ripples');
     const rippleCountLocation = gl.getUniformLocation(program, 'u_rippleCount');
+    const nightLocation = gl.getUniformLocation(program, 'u_night');
+    const ambientLocation = gl.getUniformLocation(program, 'u_ambientIntensity');
 
     // Dither post-process program
     const ditherVertexShader = createShader(gl, gl.VERTEX_SHADER, ditherVertexShaderSource);
@@ -542,6 +659,7 @@
     const ditherResolutionLocation = gl.getUniformLocation(ditherProgram, 'u_resolution');
     const ditherImageLocation = gl.getUniformLocation(ditherProgram, 'u_image');
     const ditherTimeLocation = gl.getUniformLocation(ditherProgram, 'u_time');
+    const ditherNightLocation = gl.getUniformLocation(ditherProgram, 'u_night');
 
     const lightDecayImageLocation = gl.getUniformLocation(lightDecayProgram, 'u_light');
     const lightDecayFactorLocation = gl.getUniformLocation(lightDecayProgram, 'u_decay');
@@ -1011,6 +1129,9 @@
       gl.uniform2f(logoCenterLocation, logoCenter[0], logoCenter[1]);
       gl.uniform2f(logoSizeLocation, logoSize[0], logoSize[1]);
       gl.uniform1f(logoFadeLocation, logoFade);
+      const nightValue = prefersNight ? 1.0 : 0.0;
+      gl.uniform1f(nightLocation, nightValue);
+      gl.uniform1f(ambientLocation, prefersNight ? 0.28 : 1.0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, lightTextures[lightWriteIndex]);
       gl.uniform1i(lightTextureLocation, 1);
@@ -1042,6 +1163,7 @@
       gl.uniform1i(ditherImageLocation, 0);
       gl.uniform2f(ditherResolutionLocation, canvas.width, canvas.height);
       gl.uniform1f(ditherTimeLocation, time * 0.001);
+      gl.uniform1f(ditherNightLocation, nightValue);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
