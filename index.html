@@ -74,6 +74,7 @@
     }
 
     const canvas = document.getElementById('canvas');
+    const logo = document.getElementById('logo');
     const gl = canvas.getContext('webgl');
 
     const vertexShaderSource = `
@@ -180,6 +181,9 @@
 
     const LIGHT_INTENSITY = 1.0;
     const PAINT_INTENSITY = LIGHT_INTENSITY / 3;
+    const LOGO_FADE_DELAY = 600;
+    const LOGO_FADE_DURATION = 5000;
+    const LOGO_FADE_TARGET = 0.85;
 
     const lightPointFragmentShaderSource = `
       precision highp float;
@@ -217,6 +221,10 @@
       uniform vec2 iResolution;
       uniform float iTime;
       uniform sampler2D u_light;
+      uniform sampler2D u_logo;
+      uniform vec2 u_logoCenter;
+      uniform vec2 u_logoSize;
+      uniform float u_logoFade;
 
       // afl_ext 2017-2024
       // MIT License
@@ -227,6 +235,7 @@
       #define CAMERA_HEIGHT 1.5
       #define ITERATIONS_RAYMARCH 8
       #define ITERATIONS_NORMAL 16
+      #define LOGO_INTENSITY 3.5
 
       vec2 wavedx(vec2 position, vec2 direction, float frequency, float timeshift) {
         float x = dot(direction, position) * frequency + timeshift;
@@ -349,6 +358,13 @@
         return vec2(u, v);
       }
 
+      float sampleLogo(vec2 uv) {
+        vec2 local = (uv - u_logoCenter) / u_logoSize + 0.5;
+        float inside = step(0.0, local.x) * step(local.x, 1.0) * step(0.0, local.y) * step(local.y, 1.0);
+        float alpha = texture2D(u_logo, local).a * inside;
+        return alpha * u_logoFade;
+      }
+
       vec3 aces_tonemap(vec3 color) {  
         mat3 m1 = mat3(
           0.59719, 0.07600, 0.02840,
@@ -396,7 +412,8 @@
         R.y = abs(R.y);
         
         float reflectedLight = texture2D(u_light, skyUV(R)).r;
-        vec3 reflection = getAtmosphere(R) + vec3(1.0) * reflectedLight * 4.0;
+        float reflectedLogo = sampleLogo(skyUV(R));
+        vec3 reflection = getAtmosphere(R) + vec3(1.0) * (reflectedLight * 4.0 + reflectedLogo * LOGO_INTENSITY);
         vec3 scattering = vec3(0.08, 0.08, 0.09) * (0.2 + (waterHitPos.y + WATER_DEPTH) / WATER_DEPTH);
 
         vec3 C = fresnel * reflection + scattering;
@@ -455,6 +472,10 @@
     const resolutionLocation = gl.getUniformLocation(program, 'iResolution');
     const timeLocation = gl.getUniformLocation(program, 'iTime');
     const lightTextureLocation = gl.getUniformLocation(program, 'u_light');
+    const logoTextureLocation = gl.getUniformLocation(program, 'u_logo');
+    const logoCenterLocation = gl.getUniformLocation(program, 'u_logoCenter');
+    const logoSizeLocation = gl.getUniformLocation(program, 'u_logoSize');
+    const logoFadeLocation = gl.getUniformLocation(program, 'u_logoFade');
 
     // Dither post-process program
     const ditherVertexShader = createShader(gl, gl.VERTEX_SHADER, ditherVertexShaderSource);
@@ -504,6 +525,17 @@
     let lightTextures = [null, null];
     let lightWriteIndex = 0;
     let lastLightTime = 0;
+
+    const logoCenter = [0.53, 0.72];
+    let logoSize = [0.18, 0.18 / 1.32];
+    let logoFadeStart = null;
+    const logoTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     function setupFramebuffer(width, height) {
       if (framebuffer && fbWidth === width && fbHeight === height) return;
@@ -558,6 +590,48 @@
       lightWriteIndex = 0;
     }
 
+    function setupLogoTexture() {
+      const svg = document.querySelector('#logo svg');
+      if (!svg) return;
+
+      let logoAspect = 1.32;
+      const viewBox = svg.getAttribute('viewBox');
+      if (viewBox) {
+        const parts = viewBox.trim().split(/\s+/).map(Number);
+        if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+          logoAspect = parts[2] / parts[3];
+        }
+      }
+      const baseSize = 0.18;
+      logoSize = [baseSize, baseSize / logoAspect];
+
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+
+      img.onload = () => {
+        const width = 512;
+        const height = Math.max(1, Math.round(width / logoAspect));
+        const logoCanvas = document.createElement('canvas');
+        logoCanvas.width = width;
+        logoCanvas.height = height;
+        const ctx = logoCanvas.getContext('2d');
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, logoCanvas);
+        URL.revokeObjectURL(url);
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+      };
+
+      img.src = url;
+    }
+
     function resize() {
       // Render at reduced resolution
       const scale = 0.4;
@@ -565,10 +639,13 @@
       canvas.height = window.innerHeight * window.devicePixelRatio * scale;
       setupFramebuffer(canvas.width, canvas.height);
       setupLightFramebuffers(canvas.width, canvas.height);
+      updateLogoPlacement();
     }
 
     window.addEventListener('resize', resize);
     resize();
+    setupLogoTexture();
+    updateLogoPlacement();
 
     // FPS tracking
     let frameCount = 0;
@@ -576,6 +653,13 @@
 
     const pendingLightPoints = [];
     let isDrawing = false;
+
+    function wrapUVDelta(a, b) {
+      let d = a - b;
+      if (d > 0.5) d -= 1.0;
+      if (d < -0.5) d += 1.0;
+      return d;
+    }
 
     function screenPosToSkyUV(screenX, screenY, aspect) {
       const uvX = screenX * 2 - 1;
@@ -628,41 +712,69 @@
       const uvUp = screenPosToSkyUV(x, upY, aspect);
       const uvDown = screenPosToSkyUV(x, downY, aspect);
 
-      const wrapDelta = (a, b) => {
-        let d = a - b;
-        if (d > 0.5) d -= 1.0;
-        if (d < -0.5) d += 1.0;
-        return d;
-      };
-
       let du_dx = 0.001;
       let dv_dx = 0.0;
       let du_dy = 0.0;
       let dv_dy = 0.001;
 
       if (uvRight && uvLeft) {
-        du_dx = wrapDelta(uvRight.u, uvLeft.u) / (2 * epsPx);
+        du_dx = wrapUVDelta(uvRight.u, uvLeft.u) / (2 * epsPx);
         dv_dx = (uvRight.v - uvLeft.v) / (2 * epsPx);
       } else if (uvRight) {
-        du_dx = wrapDelta(uvRight.u, result.u) / epsPx;
+        du_dx = wrapUVDelta(uvRight.u, result.u) / epsPx;
         dv_dx = (uvRight.v - result.v) / epsPx;
       } else if (uvLeft) {
-        du_dx = wrapDelta(result.u, uvLeft.u) / epsPx;
+        du_dx = wrapUVDelta(result.u, uvLeft.u) / epsPx;
         dv_dx = (result.v - uvLeft.v) / epsPx;
       }
 
       if (uvUp && uvDown) {
-        du_dy = wrapDelta(uvUp.u, uvDown.u) / (2 * epsPx);
+        du_dy = wrapUVDelta(uvUp.u, uvDown.u) / (2 * epsPx);
         dv_dy = (uvUp.v - uvDown.v) / (2 * epsPx);
       } else if (uvUp) {
-        du_dy = wrapDelta(uvUp.u, result.u) / epsPx;
+        du_dy = wrapUVDelta(uvUp.u, result.u) / epsPx;
         dv_dy = (uvUp.v - result.v) / epsPx;
       } else if (uvDown) {
-        du_dy = wrapDelta(result.u, uvDown.u) / epsPx;
+        du_dy = wrapUVDelta(result.u, uvDown.u) / epsPx;
         dv_dy = (result.v - uvDown.v) / epsPx;
       }
 
       return { u: result.u, v: result.v, du_dx, dv_dx, du_dy, dv_dy };
+    }
+
+    function updateLogoPlacement() {
+      if (!logo) return;
+      const canvasRect = canvas.getBoundingClientRect();
+      const logoRect = logo.getBoundingClientRect();
+      if (!canvasRect.width || !canvasRect.height) return;
+
+      const centerX = (logoRect.left + logoRect.width / 2 - canvasRect.left) / canvasRect.width;
+      const centerY = 1 - (logoRect.top + logoRect.height / 2 - canvasRect.top) / canvasRect.height;
+      const aspect = canvas.width / canvas.height;
+      const centerUV = screenPosToSkyUV(centerX, centerY, aspect);
+      if (!centerUV) return;
+
+      const halfWidth = (logoRect.width / 2) / canvasRect.width;
+      const halfHeight = (logoRect.height / 2) / canvasRect.height;
+      const leftUV = screenPosToSkyUV(centerX - halfWidth, centerY, aspect);
+      const rightUV = screenPosToSkyUV(centerX + halfWidth, centerY, aspect);
+      const upUV = screenPosToSkyUV(centerX, centerY + halfHeight, aspect);
+      const downUV = screenPosToSkyUV(centerX, centerY - halfHeight, aspect);
+
+      let sizeU = logoSize[0];
+      let sizeV = logoSize[1];
+
+      if (leftUV && rightUV) {
+        sizeU = Math.abs(wrapUVDelta(rightUV.u, leftUV.u));
+      }
+      if (upUV && downUV) {
+        sizeV = Math.abs(upUV.v - downUV.v);
+      }
+
+      logoCenter[0] = centerUV.u;
+      logoCenter[1] = centerUV.v;
+      logoSize[0] = sizeU;
+      logoSize[1] = sizeV;
     }
 
     function queueLightPoints(event) {
@@ -779,6 +891,12 @@
 
       updateLightTexture(time);
 
+      if (logoFadeStart === null) {
+        logoFadeStart = time + LOGO_FADE_DELAY;
+      }
+      const logoProgress = Math.min(Math.max((time - logoFadeStart) / LOGO_FADE_DURATION, 0), 1);
+      const logoFade = logoProgress * LOGO_FADE_TARGET;
+
       // Pass 1: Render ocean waves to framebuffer
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -788,9 +906,15 @@
       gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
       gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
       gl.uniform1f(timeLocation, time * 0.001);
+      gl.uniform2f(logoCenterLocation, logoCenter[0], logoCenter[1]);
+      gl.uniform2f(logoSizeLocation, logoSize[0], logoSize[1]);
+      gl.uniform1f(logoFadeLocation, logoFade);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, lightTextures[lightWriteIndex]);
       gl.uniform1i(lightTextureLocation, 1);
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, logoTexture);
+      gl.uniform1i(logoTextureLocation, 2);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
 
       // Pass 2: Apply dither post-processing to screen
@@ -820,11 +944,10 @@
     requestAnimationFrame(render);
 
     // Logo fade-in animation
-    const logo = document.getElementById('logo');
     setTimeout(() => {
-      logo.style.transition = 'opacity 5s ease';
-      logo.style.opacity = '0.85';
-    }, 600);
+      logo.style.transition = `opacity ${LOGO_FADE_DURATION / 1000}s ease`;
+      logo.style.opacity = `${LOGO_FADE_TARGET}`;
+    }, LOGO_FADE_DELAY);
   </script>
 </body>
 </html>
