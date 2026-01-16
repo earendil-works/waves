@@ -507,7 +507,7 @@
         vec3 pos = start;
         vec3 dir = normalize(end - start);
         for(int i=0; i < RAYMARCH_STEPS; i++) {
-          float height = getwaves_base(pos.xz, ITERATIONS_RAYMARCH) * depth - depth;
+          float height = getwaves(pos.xz, ITERATIONS_RAYMARCH) * depth - depth;
           if(height + 0.01 > pos.y) {
             return distance(pos, camera);
           }
