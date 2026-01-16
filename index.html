@@ -220,7 +220,7 @@
         vec3 proj = normalize(vec3(uv.x, uv.y, 1.5));
         // Fixed camera angle (no mouse movement) - tilted down to show only water
         return createRotationMatrixAxisAngle(vec3(0.0, -1.0, 0.0), 0.0) 
-          * createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), -0.33)
+          * createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), -0.05)
           * proj;
       }
 
