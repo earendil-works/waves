@@ -36,49 +36,45 @@
       }
     `;
 
+    // Film grain post-process shader (MIT licensed, based on martinsh/devlog-film-grain)
     const ditherFragmentShaderSource = `
       precision highp float;
       uniform sampler2D u_image;
       uniform vec2 u_resolution;
+      uniform float u_time;
       varying vec2 v_texCoord;
 
-      // Hash function for stable random noise
-      float hash(vec2 p) {
-        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-        p3 += dot(p3, p3.yzx + 33.33);
-        return fract((p3.x + p3.y) * p3.z);
-      }
+      #define INTENSITY 0.18
+      #define SPEED 2.0
+      #define MEAN 0.0
+      #define VARIANCE 0.5
 
-      // Atkinson-style threshold pattern (4x4)
-      float atkinsonThreshold(vec2 pos) {
-        int x = int(mod(pos.x, 4.0));
-        int y = int(mod(pos.y, 4.0));
-        int idx = y * 4 + x;
-        float thresholds[16];
-        thresholds[0] = 0.0;    thresholds[1] = 12.0;  thresholds[2] = 3.0;   thresholds[3] = 15.0;
-        thresholds[4] = 8.0;   thresholds[5] = 4.0;   thresholds[6] = 11.0;  thresholds[7] = 7.0;
-        thresholds[8] = 2.0;   thresholds[9] = 14.0;  thresholds[10] = 1.0;  thresholds[11] = 13.0;
-        thresholds[12] = 10.0; thresholds[13] = 6.0;  thresholds[14] = 9.0;  thresholds[15] = 5.0;
-        for (int i = 0; i < 16; i++) {
-          if (i == idx) return thresholds[i] / 16.0;
-        }
-        return 0.0;
+      float gaussian(float z, float u, float o) {
+        return (1.0 / (o * sqrt(2.0 * 3.1415))) * exp(-(((z - u) * (z - u)) / (2.0 * (o * o))));
       }
 
       void main() {
         vec4 color = texture2D(u_image, v_texCoord);
+        
+        // Convert to grayscale
         float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-
-        // Atkinson-style dithering with contrast boost
-        gray = gray * 1.2 - 0.1;
+        
+        // Film grain noise
+        float t = u_time * SPEED;
+        vec2 uv = gl_FragCoord.xy / u_resolution;
+        float seed = dot(uv, vec2(12.9898, 78.233));
+        float noise = fract(sin(seed) * 43758.5453 + t);
+        noise = gaussian(noise, MEAN, VARIANCE * VARIANCE);
+        
+        // Apply grain (addition blend mode)
+        vec3 grain = vec3(noise) * (1.0 - vec3(gray));
+        gray = gray + grain.r * INTENSITY;
         gray = clamp(gray, 0.0, 1.0);
-        float threshold = atkinsonThreshold(gl_FragCoord.xy);
-
-        // Add small offset so gray=0 always renders as dark
-        float dithered = step(threshold + 0.1, gray);
+        
+        // Map to color palette
         vec3 dark = vec3(0.235);   // #3c3c3c
-        vec3 light = vec3(0.643);  // #a4a4a4
-        gl_FragColor = vec4(mix(dark, light, dithered), 1.0);
+        vec3 light = vec3(0.836);  // #d5d5d5
+        gl_FragColor = vec4(mix(dark, light, gray), 1.0);
       }
     `;
 
@@ -323,6 +319,7 @@
 
     const ditherResolutionLocation = gl.getUniformLocation(ditherProgram, 'u_resolution');
     const ditherImageLocation = gl.getUniformLocation(ditherProgram, 'u_image');
+    const ditherTimeLocation = gl.getUniformLocation(ditherProgram, 'u_time');
 
     // Framebuffer for render-to-texture
     let framebuffer = null;
@@ -408,6 +405,7 @@
       gl.bindTexture(gl.TEXTURE_2D, renderTexture);
       gl.uniform1i(ditherImageLocation, 0);
       gl.uniform2f(ditherResolutionLocation, canvas.width, canvas.height);
+      gl.uniform1f(ditherTimeLocation, time * 0.001);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
