@@ -144,8 +144,9 @@
       varying vec2 v_texCoord;
 
       void main() {
-        vec4 color = texture2D(u_light, v_texCoord) * u_decay;
-        float intensity = color.r;
+        vec4 color = texture2D(u_light, v_texCoord);
+        float intensity = color.r * u_decay - 0.004; // linear term breaks 8-bit quantization
+        intensity = max(0.0, intensity);
         intensity *= step(u_cutoff, intensity);
         gl_FragColor = vec4(vec3(intensity), intensity);
       }
@@ -161,6 +162,8 @@
       }
     `;
 
+    const LIGHT_INTENSITY = 0.4;
+
     const lightPointFragmentShaderSource = `
       precision highp float;
 
@@ -168,7 +171,7 @@
         vec2 coord = gl_PointCoord - 0.5;
         float dist = length(coord) * 2.0;
         float falloff = smoothstep(1.0, 0.0, dist);
-        float intensity = falloff * 0.12;
+        float intensity = falloff * ${LIGHT_INTENSITY};
         gl_FragColor = vec4(vec3(intensity), intensity);
       }
     `;
@@ -606,12 +609,12 @@
       if (!lastLightTime) {
         lastLightTime = time;
       }
-      const delta = Math.max(0, (time - lastLightTime) * 0.005);
+      const delta = Math.max(0, (time - lastLightTime) * 0.001);
       lastLightTime = time;
-      const fadeSeconds = 10;
-      const targetIntensity = 0.12;
+      const fadeSeconds = 60;
+      const targetIntensity = LIGHT_INTENSITY;
+      const decayCutoff = 1 / 255;
       const decayFloor = (1 / 255) / targetIntensity;
-      const decayCutoff = 1.1 / 255;
       const decay = Math.pow(decayFloor, delta / fadeSeconds);
       const readIndex = lightWriteIndex;
       const writeIndex = 1 - lightWriteIndex;
