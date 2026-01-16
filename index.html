@@ -154,11 +154,27 @@
 
     const lightPointVertexShaderSource = `
       attribute vec2 a_position;
-      attribute float a_size;
+      attribute vec4 a_uvDeriv;  // (du/dx, dv/dx, du/dy, dv/dy)
+      attribute float a_screenRadius;  // desired radius in screen units
+      uniform vec2 u_texSize;
+      varying vec4 v_uvDeriv;
+      varying float v_screenRadius;
+      varying float v_pointSize;
 
       void main() {
         gl_Position = vec4(a_position * 2.0 - 1.0, 0.0, 1.0);
-        gl_PointSize = a_size;
+        // Compute pixel radius needed to cover screen radius in UV space
+        vec2 uvDerivX = a_uvDeriv.xy;
+        vec2 uvDerivY = a_uvDeriv.zw;
+        vec2 pixelDerivX = uvDerivX * u_texSize;
+        vec2 pixelDerivY = uvDerivY * u_texSize;
+        float pixelRadiusX = length(pixelDerivX) * a_screenRadius;
+        float pixelRadiusY = length(pixelDerivY) * a_screenRadius;
+        float pixelRadius = max(pixelRadiusX, pixelRadiusY);
+        gl_PointSize = pixelRadius * 2.0 + 2.0;
+        v_pointSize = gl_PointSize;
+        v_uvDeriv = a_uvDeriv;
+        v_screenRadius = a_screenRadius;
       }
     `;
 
@@ -167,10 +183,29 @@
 
     const lightPointFragmentShaderSource = `
       precision highp float;
+      uniform vec2 u_texSize;
+      varying vec4 v_uvDeriv;
+      varying float v_screenRadius;
+      varying float v_pointSize;
 
       void main() {
-        vec2 coord = gl_PointCoord - 0.5;
-        float dist = length(coord) * 2.0;
+        // Convert gl_PointCoord to UV offset
+        vec2 pixelOffset = (gl_PointCoord - 0.5) * v_pointSize;
+        vec2 uvOffset = pixelOffset / u_texSize;
+
+        // Invert Jacobian to map UV offset back to screen offset
+        float du_dx = v_uvDeriv.x;
+        float dv_dx = v_uvDeriv.y;
+        float du_dy = v_uvDeriv.z;
+        float dv_dy = v_uvDeriv.w;
+        float det = du_dx * dv_dy - du_dy * dv_dx;
+        vec2 screenOffset = uvOffset;
+        if (abs(det) > 1e-12) {
+          mat2 invJ = mat2(dv_dy, -dv_dx, -du_dy, du_dx) / det;
+          screenOffset = invJ * uvOffset;
+        }
+
+        float dist = length(screenOffset) / v_screenRadius;
         float falloff = smoothstep(1.0, 0.0, dist);
         float intensity = falloff * ${PAINT_INTENSITY};
         gl_FragColor = vec4(vec3(intensity), intensity);
@@ -454,7 +489,9 @@
     const lightDecayCutoffLocation = gl.getUniformLocation(lightDecayProgram, 'u_cutoff');
 
     const lightPointPositionLocation = gl.getAttribLocation(lightPointProgram, 'a_position');
-    const lightPointSizeLocation = gl.getAttribLocation(lightPointProgram, 'a_size');
+    const lightPointUvDerivLocation = gl.getAttribLocation(lightPointProgram, 'a_uvDeriv');
+    const lightPointScreenRadiusLocation = gl.getAttribLocation(lightPointProgram, 'a_screenRadius');
+    const lightPointTexSizeLocation = gl.getUniformLocation(lightPointProgram, 'u_texSize');
     const lightPointBuffer = gl.createBuffer();
 
     // Framebuffer for render-to-texture
@@ -540,15 +577,9 @@
     const pendingLightPoints = [];
     let isDrawing = false;
 
-    function screenToSkyUV(event) {
-      const rect = canvas.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / rect.width;
-      const y = 1 - (event.clientY - rect.top) / rect.height;
-      if (x < 0 || x > 1 || y < 0 || y > 1) return null;
-
-      const aspect = rect.width / rect.height;
-      const uvX = x * 2 - 1;
-      const uvY = y * 2 - 1;
+    function screenPosToSkyUV(screenX, screenY, aspect) {
+      const uvX = screenX * 2 - 1;
+      const uvY = screenY * 2 - 1;
       const projX = uvX * aspect;
       const projY = uvY;
       const projZ = 1.5;
@@ -572,22 +603,92 @@
       return { u, v };
     }
 
+    function screenToSkyUV(event) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const xPx = (event.clientX - rect.left) * scaleX;
+      const yPx = (rect.height - (event.clientY - rect.top)) * scaleY;
+      const x = xPx / canvas.width;
+      const y = yPx / canvas.height;
+      if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+
+      const aspect = canvas.width / canvas.height;
+      const result = screenPosToSkyUV(x, y, aspect);
+      if (!result) return null;
+
+      // Compute Jacobian: how much u and v change per device pixel
+      const epsPx = 1;
+      const rightX = (xPx + epsPx) / canvas.width;
+      const leftX = (xPx - epsPx) / canvas.width;
+      const upY = (yPx + epsPx) / canvas.height;
+      const downY = (yPx - epsPx) / canvas.height;
+      const uvRight = screenPosToSkyUV(rightX, y, aspect);
+      const uvLeft = screenPosToSkyUV(leftX, y, aspect);
+      const uvUp = screenPosToSkyUV(x, upY, aspect);
+      const uvDown = screenPosToSkyUV(x, downY, aspect);
+
+      const wrapDelta = (a, b) => {
+        let d = a - b;
+        if (d > 0.5) d -= 1.0;
+        if (d < -0.5) d += 1.0;
+        return d;
+      };
+
+      let du_dx = 0.001;
+      let dv_dx = 0.0;
+      let du_dy = 0.0;
+      let dv_dy = 0.001;
+
+      if (uvRight && uvLeft) {
+        du_dx = wrapDelta(uvRight.u, uvLeft.u) / (2 * epsPx);
+        dv_dx = (uvRight.v - uvLeft.v) / (2 * epsPx);
+      } else if (uvRight) {
+        du_dx = wrapDelta(uvRight.u, result.u) / epsPx;
+        dv_dx = (uvRight.v - result.v) / epsPx;
+      } else if (uvLeft) {
+        du_dx = wrapDelta(result.u, uvLeft.u) / epsPx;
+        dv_dx = (result.v - uvLeft.v) / epsPx;
+      }
+
+      if (uvUp && uvDown) {
+        du_dy = wrapDelta(uvUp.u, uvDown.u) / (2 * epsPx);
+        dv_dy = (uvUp.v - uvDown.v) / (2 * epsPx);
+      } else if (uvUp) {
+        du_dy = wrapDelta(uvUp.u, result.u) / epsPx;
+        dv_dy = (uvUp.v - result.v) / epsPx;
+      } else if (uvDown) {
+        du_dy = wrapDelta(result.u, uvDown.u) / epsPx;
+        dv_dy = (result.v - uvDown.v) / epsPx;
+      }
+
+      return { u: result.u, v: result.v, du_dx, dv_dx, du_dy, dv_dy };
+    }
+
     function queueLightPoints(event) {
       const skyUV = screenToSkyUV(event);
       if (!skyUV) return;
 
       const sprinkleCount = 10;
       for (let i = 0; i < sprinkleCount; i++) {
-        const jitterX = (Math.random() - 0.5) * 0.025;
-        const jitterY = (Math.random() - 0.5) * 0.025;
-        const size = (Math.random() * 6 + 4) * window.devicePixelRatio;
-        const px = Math.min(1, Math.max(0, skyUV.u + jitterX));
-        const py = Math.min(1, Math.max(0, skyUV.v + jitterY));
-        pendingLightPoints.push(px, py, size);
+        const angle = Math.random() * Math.PI * 2;
+        const radius = (Math.random() * 10 + 6) * window.devicePixelRatio;
+        const offsetX = Math.cos(angle) * radius;
+        const offsetY = Math.sin(angle) * radius;
+
+        const jitterU = skyUV.du_dx * offsetX + skyUV.du_dy * offsetY;
+        const jitterV = skyUV.dv_dx * offsetX + skyUV.dv_dy * offsetY;
+
+        // Radius in screen pixels (independent of resolution)
+        const screenRadius = (Math.random() * 6 + 4) * window.devicePixelRatio;
+        const px = (skyUV.u + jitterU + 1) % 1;
+        const py = Math.min(1, Math.max(0, skyUV.v + jitterV));
+        // 7 floats per point: x, y, du_dx, dv_dx, du_dy, dv_dy, screenRadius
+        pendingLightPoints.push(px, py, skyUV.du_dx, skyUV.dv_dx, skyUV.du_dy, skyUV.dv_dy, screenRadius);
       }
 
-      if (pendingLightPoints.length > 1800) {
-        pendingLightPoints.splice(0, pendingLightPoints.length - 1800);
+      if (pendingLightPoints.length > 4200) {
+        pendingLightPoints.splice(0, pendingLightPoints.length - 4200);
       }
     }
 
@@ -641,18 +742,23 @@
 
       if (pendingLightPoints.length > 0) {
         gl.useProgram(lightPointProgram);
+        gl.uniform2f(lightPointTexSizeLocation, canvas.width, canvas.height);
         gl.bindBuffer(gl.ARRAY_BUFFER, lightPointBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pendingLightPoints), gl.DYNAMIC_DRAW);
 
+        // 7 floats per vertex: x, y, du_dx, dv_dx, du_dy, dv_dy, screenRadius (28 bytes)
         gl.enableVertexAttribArray(lightPointPositionLocation);
-        gl.vertexAttribPointer(lightPointPositionLocation, 2, gl.FLOAT, false, 12, 0);
+        gl.vertexAttribPointer(lightPointPositionLocation, 2, gl.FLOAT, false, 28, 0);
 
-        gl.enableVertexAttribArray(lightPointSizeLocation);
-        gl.vertexAttribPointer(lightPointSizeLocation, 1, gl.FLOAT, false, 12, 8);
+        gl.enableVertexAttribArray(lightPointUvDerivLocation);
+        gl.vertexAttribPointer(lightPointUvDerivLocation, 4, gl.FLOAT, false, 28, 8);
+
+        gl.enableVertexAttribArray(lightPointScreenRadiusLocation);
+        gl.vertexAttribPointer(lightPointScreenRadiusLocation, 1, gl.FLOAT, false, 28, 24);
 
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE);
-        gl.drawArrays(gl.POINTS, 0, pendingLightPoints.length / 3);
+        gl.drawArrays(gl.POINTS, 0, pendingLightPoints.length / 7);
         gl.disable(gl.BLEND);
 
         pendingLightPoints.length = 0;
