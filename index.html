@@ -113,7 +113,6 @@
     };
 
     // Quality settings for slower computers
-    const QUALITY_STORAGE_KEY = 'earendil-quality';
     const QUALITY_LEVELS = ['low', 'medium', 'high'];
     const QUALITY_SETTINGS = {
       low: {
@@ -139,27 +138,15 @@
       }
     };
 
-    function loadQuality() {
-      try {
-        const stored = localStorage.getItem(QUALITY_STORAGE_KEY);
-        if (QUALITY_LEVELS.includes(stored)) {
-          return stored;
-        }
-      } catch (error) {
-        console.warn('Unable to access localStorage for quality.', error);
-      }
-      return 'high';
-    }
+    let currentQuality = 'high';
 
-    let currentQuality = loadQuality();
-
-    function persistQuality() {
-      try {
-        localStorage.setItem(QUALITY_STORAGE_KEY, currentQuality);
-      } catch (error) {
-        console.warn('Unable to persist quality.', error);
-      }
-    }
+    // Adaptive quality settings
+    const AUTO_QUALITY_FPS_LOW = 28;      // Drop quality if FPS below this
+    const AUTO_QUALITY_FPS_HIGH = 55;     // Increase quality if FPS above this
+    const AUTO_QUALITY_SAMPLE_TIME = 2000; // Time window to average FPS (ms)
+    const AUTO_QUALITY_COOLDOWN = 4000;   // Minimum time between quality changes (ms)
+    let autoQualityFpsHistory = [];
+    let lastQualityChangeTime = 0;
 
     function loadThemeMode() {
       try {
@@ -812,23 +799,41 @@
     function setQuality(quality) {
       if (!QUALITY_LEVELS.includes(quality) || quality === currentQuality) return;
       currentQuality = quality;
-      persistQuality();
       rebuildOceanProgram();
       resize();
+      lastQualityChangeTime = performance.now();
     }
 
-    function cycleQuality() {
-      const currentIndex = QUALITY_LEVELS.indexOf(currentQuality);
-      const nextIndex = (currentIndex + 1) % QUALITY_LEVELS.length;
-      setQuality(QUALITY_LEVELS[nextIndex]);
-    }
+    function updateAutoQuality(time, fps) {
+      // Add FPS sample with timestamp
+      autoQualityFpsHistory.push({ time, fps });
 
-    // Keyboard shortcut: 'q' to cycle quality
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'q' || e.key === 'Q') {
-        cycleQuality();
+      // Remove old samples outside the window
+      const cutoff = time - AUTO_QUALITY_SAMPLE_TIME;
+      while (autoQualityFpsHistory.length > 0 && autoQualityFpsHistory[0].time < cutoff) {
+        autoQualityFpsHistory.shift();
       }
-    });
+
+      // Need enough samples before making decisions
+      if (autoQualityFpsHistory.length < 3) return;
+
+      // Check cooldown
+      if (time - lastQualityChangeTime < AUTO_QUALITY_COOLDOWN) return;
+
+      // Calculate average FPS
+      const avgFps = autoQualityFpsHistory.reduce((sum, s) => sum + s.fps, 0) / autoQualityFpsHistory.length;
+      const currentIndex = QUALITY_LEVELS.indexOf(currentQuality);
+
+      if (avgFps < AUTO_QUALITY_FPS_LOW && currentIndex > 0) {
+        // FPS too low, reduce quality
+        setQuality(QUALITY_LEVELS[currentIndex - 1]);
+        autoQualityFpsHistory = []; // Reset history after change
+      } else if (avgFps > AUTO_QUALITY_FPS_HIGH && currentIndex < QUALITY_LEVELS.length - 1) {
+        // FPS high enough, try increasing quality
+        setQuality(QUALITY_LEVELS[currentIndex + 1]);
+        autoQualityFpsHistory = []; // Reset history after change
+      }
+    }
 
     // Dither post-process program
     const ditherVertexShader = createShader(gl, gl.VERTEX_SHADER, ditherVertexShaderSource);
@@ -1302,7 +1307,12 @@
       // Update FPS counter
       frameCount++;
       if (time - lastFpsUpdate >= 1000) {
-        fpsDisplay.textContent = `FPS: ${frameCount} | ${canvas.width}x${canvas.height} | Quality: ${currentQuality} (Q to change)`;
+        const fps = frameCount;
+        fpsDisplay.textContent = `FPS: ${fps} | ${canvas.width}x${canvas.height} | Quality: ${currentQuality}`;
+        
+        // Update auto quality based on measured FPS
+        updateAutoQuality(time, fps);
+        
         frameCount = 0;
         lastFpsUpdate = time;
       }
