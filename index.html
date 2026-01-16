@@ -14,6 +14,31 @@
     canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
     #fps { position: fixed; top: 10px; left: 10px; color: white; font: 16px monospace; background: rgba(0,0,0,0.5); padding: 5px 10px; z-index: 100; display: none; }
     #fps.visible { display: block; }
+
+    #theme-toggle {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      border: 0;
+      background: none;
+      color: rgba(255, 255, 255, 0.95);
+      font: 26px/1 "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols", "Arial", sans-serif;
+      font-variant-emoji: text;
+      padding: 6px;
+      z-index: 120;
+      cursor: pointer;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+
+    #theme-toggle:hover {
+      color: rgba(255, 255, 255, 1);
+      transform: scale(1.08);
+    }
+
+    #theme-toggle:active {
+      transform: scale(0.98);
+    }
     
     /* Logo styles */
     .main-logo {
@@ -44,6 +69,7 @@
 </head>
 <body>
   <div id="fps">FPS: --</div>
+  <button id="theme-toggle" type="button" aria-label="Toggle color theme"></button>
   
   <!-- Earendil Logo -->
   <div class="main-logo" id="logo">
@@ -75,7 +101,30 @@
 
     const canvas = document.getElementById('canvas');
     const logo = document.getElementById('logo');
+    const themeToggle = document.getElementById('theme-toggle');
     const gl = canvas.getContext('webgl');
+
+    const THEME_STORAGE_KEY = 'earendil-theme-mode';
+    const THEME_MODES = ['auto', 'night', 'day'];
+    const THEME_ICONS = {
+      auto: '◐',
+      night: '☾',
+      day: '☀'
+    };
+
+    function loadThemeMode() {
+      try {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        if (THEME_MODES.includes(stored)) {
+          return stored;
+        }
+      } catch (error) {
+        console.warn('Unable to access localStorage for theme mode.', error);
+      }
+      return 'auto';
+    }
+
+    let themeMode = loadThemeMode();
 
     const colorSchemeQuery = window.matchMedia
       ? window.matchMedia('(prefers-color-scheme: dark)')
@@ -92,6 +141,36 @@
         colorSchemeQuery.addListener(onSchemeChange);
       }
     }
+
+    function getNightPreference() {
+      if (themeMode === 'auto') {
+        return prefersNight;
+      }
+      return themeMode === 'night';
+    }
+
+    function updateThemeToggle() {
+      themeToggle.textContent = THEME_ICONS[themeMode] || THEME_ICONS.auto;
+      themeToggle.setAttribute('aria-label', `Theme: ${themeMode}`);
+    }
+
+    function persistThemeMode() {
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+      } catch (error) {
+        console.warn('Unable to persist theme mode.', error);
+      }
+    }
+
+    themeToggle.addEventListener('click', () => {
+      const currentIndex = THEME_MODES.indexOf(themeMode);
+      const nextIndex = (currentIndex + 1) % THEME_MODES.length;
+      themeMode = THEME_MODES[nextIndex];
+      persistThemeMode();
+      updateThemeToggle();
+    });
+
+    updateThemeToggle();
 
     const vertexShaderSource = `
       attribute vec2 position;
@@ -1149,9 +1228,9 @@
       gl.uniform2f(logoCenterLocation, logoCenter[0], logoCenter[1]);
       gl.uniform2f(logoSizeLocation, logoSize[0], logoSize[1]);
       gl.uniform1f(logoFadeLocation, logoFade);
-      const nightValue = prefersNight ? 1.0 : 0.0;
+      const nightValue = getNightPreference() ? 1.0 : 0.0;
       gl.uniform1f(nightLocation, nightValue);
-      gl.uniform1f(ambientLocation, prefersNight ? 0.28 : 1.0);
+      gl.uniform1f(ambientLocation, getNightPreference() ? 0.28 : 1.0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, lightTextures[lightWriteIndex]);
       gl.uniform1i(lightTextureLocation, 1);
