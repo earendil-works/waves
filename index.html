@@ -18,11 +18,10 @@
     /* Logo styles */
     .main-logo {
       position: fixed;
-      top: calc(50% - 50px);
-      left: 50%;
+      top: 60px;
+      left: 60px;
       width: 300px;
       max-width: 65vw;
-      transform: translate(-50%, -50%);
       z-index: 10;
       opacity: 0;
       pointer-events: none;
@@ -35,6 +34,8 @@
     
     @media (max-width: 800px) {
       .main-logo {
+        top: 50px;
+        right: 50px;
         width: 210px;
         max-width: calc(65vw * 0.7);
       }
