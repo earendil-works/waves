@@ -177,7 +177,16 @@
           timeMultiplier *= 1.07;
           iter += 1232.399963;
         }
-        return sumOfValues / sumOfWeights;
+        float baseWaves = sumOfValues / sumOfWeights;
+
+        vec2 swellDir = normalize(vec2(0.25, -1.0));
+        float swellPhase = dot(position, swellDir) * 0.18 - iTime * 0.08;
+        float swell = 0.5 + 0.5 * sin(swellPhase);
+        swell = pow(swell, 2.0);
+        vec2 cameraPos = vec2(iTime * 0.2, 1.0);
+        float swellFade = smoothstep(28.0, 4.0, length(position - cameraPos));
+
+        return baseWaves + swell * swellFade * 0.35;
       }
 
       float raymarchwater(vec3 camera, vec3 start, vec3 end, float depth) {
