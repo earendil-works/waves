@@ -112,6 +112,55 @@
       day: '☀'
     };
 
+    // Quality settings for slower computers
+    const QUALITY_STORAGE_KEY = 'earendil-quality';
+    const QUALITY_LEVELS = ['low', 'medium', 'high'];
+    const QUALITY_SETTINGS = {
+      low: {
+        scale: 0.25,
+        raymarchSteps: 20,
+        waveIterRaymarch: 4,
+        waveIterNormal: 16,
+        fbmOctaves: 2
+      },
+      medium: {
+        scale: 0.35,
+        raymarchSteps: 24,
+        waveIterRaymarch: 6,
+        waveIterNormal: 16,
+        fbmOctaves: 3
+      },
+      high: {
+        scale: 0.4,
+        raymarchSteps: 32,
+        waveIterRaymarch: 8,
+        waveIterNormal: 16,
+        fbmOctaves: 4
+      }
+    };
+
+    function loadQuality() {
+      try {
+        const stored = localStorage.getItem(QUALITY_STORAGE_KEY);
+        if (QUALITY_LEVELS.includes(stored)) {
+          return stored;
+        }
+      } catch (error) {
+        console.warn('Unable to access localStorage for quality.', error);
+      }
+      return 'high';
+    }
+
+    let currentQuality = loadQuality();
+
+    function persistQuality() {
+      try {
+        localStorage.setItem(QUALITY_STORAGE_KEY, currentQuality);
+      } catch (error) {
+        console.warn('Unable to persist quality.', error);
+      }
+    }
+
     function loadThemeMode() {
       try {
         const stored = localStorage.getItem(THEME_STORAGE_KEY);
@@ -313,7 +362,9 @@
       }
     `;
 
-    const fragmentShaderSource = `
+    function buildFragmentShader(quality) {
+      const settings = QUALITY_SETTINGS[quality];
+      return `
       precision highp float;
       uniform vec2 iResolution;
       uniform float iTime;
@@ -334,8 +385,10 @@
       #define DRAG_MULT 0.38
       #define WATER_DEPTH 1.0
       #define CAMERA_HEIGHT 1.5
-      #define ITERATIONS_RAYMARCH 8
-      #define ITERATIONS_NORMAL 16
+      #define ITERATIONS_RAYMARCH ${settings.waveIterRaymarch}
+      #define ITERATIONS_NORMAL ${settings.waveIterNormal}
+      #define RAYMARCH_STEPS ${settings.raymarchSteps}
+      #define FBM_OCTAVES ${settings.fbmOctaves}
       #define LOGO_INTENSITY 3.5
 
       float hash21(vec2 p) {
@@ -357,7 +410,7 @@
         float value = 0.0;
         float amplitude = 0.5;
         float frequency = 1.0;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < FBM_OCTAVES; i++) {
           value += amplitude * noise21(p * frequency);
           frequency *= 2.0;
           amplitude *= 0.5;
@@ -466,8 +519,8 @@
       float raymarchwater(vec3 camera, vec3 start, vec3 end, float depth) {
         vec3 pos = start;
         vec3 dir = normalize(end - start);
-        for(int i=0; i < 32; i++) {
-          float height = getwaves(pos.xz, ITERATIONS_RAYMARCH) * depth - depth;
+        for(int i=0; i < RAYMARCH_STEPS; i++) {
+          float height = getwaves_base(pos.xz, ITERATIONS_RAYMARCH) * depth - depth;
           if(height + 0.01 > pos.y) {
             return distance(pos, camera);
           }
@@ -680,6 +733,9 @@
         mainImage(gl_FragColor, gl_FragCoord.xy);
       }
     `;
+    }
+
+    let fragmentShaderSource = buildFragmentShader(currentQuality);
 
     function createShader(gl, type, source) {
       const shader = gl.createShader(type);
@@ -708,8 +764,8 @@
 
     // Ocean wave program
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-    const program = createProgram(gl, vertexShader, fragmentShader);
+    let oceanFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    let program = createProgram(gl, vertexShader, oceanFragmentShader);
 
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -718,18 +774,61 @@
       -1, 1, 1, -1, 1, 1
     ]), gl.STATIC_DRAW);
 
-    const positionLocation = gl.getAttribLocation(program, 'position');
-    const resolutionLocation = gl.getUniformLocation(program, 'iResolution');
-    const timeLocation = gl.getUniformLocation(program, 'iTime');
-    const lightTextureLocation = gl.getUniformLocation(program, 'u_light');
-    const logoTextureLocation = gl.getUniformLocation(program, 'u_logo');
-    const logoCenterLocation = gl.getUniformLocation(program, 'u_logoCenter');
-    const logoSizeLocation = gl.getUniformLocation(program, 'u_logoSize');
-    const logoFadeLocation = gl.getUniformLocation(program, 'u_logoFade');
-    const ripplesLocation = gl.getUniformLocation(program, 'u_ripples');
-    const rippleCountLocation = gl.getUniformLocation(program, 'u_rippleCount');
-    const nightLocation = gl.getUniformLocation(program, 'u_night');
-    const ambientLocation = gl.getUniformLocation(program, 'u_ambientIntensity');
+    let positionLocation = gl.getAttribLocation(program, 'position');
+    let resolutionLocation = gl.getUniformLocation(program, 'iResolution');
+    let timeLocation = gl.getUniformLocation(program, 'iTime');
+    let lightTextureLocation = gl.getUniformLocation(program, 'u_light');
+    let logoTextureLocation = gl.getUniformLocation(program, 'u_logo');
+    let logoCenterLocation = gl.getUniformLocation(program, 'u_logoCenter');
+    let logoSizeLocation = gl.getUniformLocation(program, 'u_logoSize');
+    let logoFadeLocation = gl.getUniformLocation(program, 'u_logoFade');
+    let ripplesLocation = gl.getUniformLocation(program, 'u_ripples');
+    let rippleCountLocation = gl.getUniformLocation(program, 'u_rippleCount');
+    let nightLocation = gl.getUniformLocation(program, 'u_night');
+    let ambientLocation = gl.getUniformLocation(program, 'u_ambientIntensity');
+
+    function rebuildOceanProgram() {
+      fragmentShaderSource = buildFragmentShader(currentQuality);
+      if (oceanFragmentShader) gl.deleteShader(oceanFragmentShader);
+      if (program) gl.deleteProgram(program);
+      
+      oceanFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+      program = createProgram(gl, vertexShader, oceanFragmentShader);
+      
+      positionLocation = gl.getAttribLocation(program, 'position');
+      resolutionLocation = gl.getUniformLocation(program, 'iResolution');
+      timeLocation = gl.getUniformLocation(program, 'iTime');
+      lightTextureLocation = gl.getUniformLocation(program, 'u_light');
+      logoTextureLocation = gl.getUniformLocation(program, 'u_logo');
+      logoCenterLocation = gl.getUniformLocation(program, 'u_logoCenter');
+      logoSizeLocation = gl.getUniformLocation(program, 'u_logoSize');
+      logoFadeLocation = gl.getUniformLocation(program, 'u_logoFade');
+      ripplesLocation = gl.getUniformLocation(program, 'u_ripples');
+      rippleCountLocation = gl.getUniformLocation(program, 'u_rippleCount');
+      nightLocation = gl.getUniformLocation(program, 'u_night');
+      ambientLocation = gl.getUniformLocation(program, 'u_ambientIntensity');
+    }
+
+    function setQuality(quality) {
+      if (!QUALITY_LEVELS.includes(quality) || quality === currentQuality) return;
+      currentQuality = quality;
+      persistQuality();
+      rebuildOceanProgram();
+      resize();
+    }
+
+    function cycleQuality() {
+      const currentIndex = QUALITY_LEVELS.indexOf(currentQuality);
+      const nextIndex = (currentIndex + 1) % QUALITY_LEVELS.length;
+      setQuality(QUALITY_LEVELS[nextIndex]);
+    }
+
+    // Keyboard shortcut: 'q' to cycle quality
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'q' || e.key === 'Q') {
+        cycleQuality();
+      }
+    });
 
     // Dither post-process program
     const ditherVertexShader = createShader(gl, gl.VERTEX_SHADER, ditherVertexShaderSource);
@@ -888,8 +987,8 @@
     }
 
     function resize() {
-      // Render at reduced resolution
-      const scale = 0.4;
+      // Render at reduced resolution based on quality setting
+      const scale = QUALITY_SETTINGS[currentQuality].scale;
       canvas.width = window.innerWidth * window.devicePixelRatio * scale;
       canvas.height = window.innerHeight * window.devicePixelRatio * scale;
       setupFramebuffer(canvas.width, canvas.height);
@@ -1203,7 +1302,7 @@
       // Update FPS counter
       frameCount++;
       if (time - lastFpsUpdate >= 1000) {
-        fpsDisplay.textContent = `FPS: ${frameCount} | ${canvas.width}x${canvas.height}`;
+        fpsDisplay.textContent = `FPS: ${frameCount} | ${canvas.width}x${canvas.height} | Quality: ${currentQuality} (Q to change)`;
         frameCount = 0;
         lastFpsUpdate = time;
       }
