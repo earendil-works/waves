@@ -225,7 +225,7 @@
       uniform vec2 u_logoCenter;
       uniform vec2 u_logoSize;
       uniform float u_logoFade;
-      uniform vec4 u_ripples[20]; // (worldX, worldZ, birthTime, amplitude)
+      uniform vec4 u_ripples[10]; // (worldX, worldZ, birthTime, amplitude)
       uniform int u_rippleCount;
 
       // afl_ext 2017-2024
@@ -248,7 +248,7 @@
 
       float getripples(vec2 position) {
         float rippleSum = 0.0;
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 10; i++) {
           if (i >= u_rippleCount) break;
           vec4 ripple = u_ripples[i];
           vec2 ripplePos = ripple.xy;
@@ -274,7 +274,8 @@
         return rippleSum;
       }
 
-      float getwaves(vec2 position, int iterations) {
+      // Base wave calculation without ripples (used for raymarching)
+      float getwaves_base(vec2 position, int iterations) {
         float wavePhaseShift = length(position) * 0.1;
         float iter = 0.0;
         float frequency = 1.0;
@@ -303,10 +304,12 @@
         vec2 cameraPos = vec2(iTime * 0.2, 1.0);
         float swellFade = smoothstep(28.0, 4.0, length(position - cameraPos));
 
-        // Add user ripples
-        float rippleHeight = getripples(position);
+        return baseWaves + swell * swellFade * 0.35;
+      }
 
-        return baseWaves + swell * swellFade * 0.35 + rippleHeight;
+      // Full wave calculation with ripples (used for normal calculation)
+      float getwaves(vec2 position, int iterations) {
+        return getwaves_base(position, iterations) + getripples(position);
       }
 
       float raymarchwater(vec3 camera, vec3 start, vec3 end, float depth) {
@@ -690,7 +693,7 @@
     let isDrawing = false;
 
     // Ripple system
-    const MAX_RIPPLES = 20;
+    const MAX_RIPPLES = 10;
     const ripples = []; // Array of {x, z, time, amplitude}
     
     function screenToWaterHit(clientX, clientY, time) {
