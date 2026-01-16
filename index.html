@@ -991,17 +991,36 @@
       img.src = url;
     }
 
+    function getViewportSize() {
+      if (window.visualViewport) {
+        return {
+          width: window.visualViewport.width,
+          height: window.visualViewport.height
+        };
+      }
+      return {
+        width: window.innerWidth,
+        height: window.innerHeight
+      };
+    }
+
     function resize() {
+      const { width, height } = getViewportSize();
       // Render at reduced resolution based on quality setting
       const scale = QUALITY_SETTINGS[currentQuality].scale;
-      canvas.width = window.innerWidth * window.devicePixelRatio * scale;
-      canvas.height = window.innerHeight * window.devicePixelRatio * scale;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      canvas.width = width * window.devicePixelRatio * scale;
+      canvas.height = height * window.devicePixelRatio * scale;
       setupFramebuffer(canvas.width, canvas.height);
       setupLightFramebuffers(canvas.width, canvas.height);
       updateLogoPlacement();
     }
 
     window.addEventListener('resize', resize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', resize);
+    }
     resize();
     setupLogoTexture();
     updateLogoPlacement();
