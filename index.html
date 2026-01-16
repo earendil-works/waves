@@ -225,6 +225,8 @@
       uniform vec2 u_logoCenter;
       uniform vec2 u_logoSize;
       uniform float u_logoFade;
+      uniform vec4 u_ripples[20]; // (worldX, worldZ, birthTime, amplitude)
+      uniform int u_rippleCount;
 
       // afl_ext 2017-2024
       // MIT License
@@ -242,6 +244,34 @@
         float wave = exp(sin(x) - 1.0);
         float dx = wave * cos(x);
         return vec2(wave, -dx);
+      }
+
+      float getripples(vec2 position) {
+        float rippleSum = 0.0;
+        for (int i = 0; i < 20; i++) {
+          if (i >= u_rippleCount) break;
+          vec4 ripple = u_ripples[i];
+          vec2 ripplePos = ripple.xy;
+          float birthTime = ripple.z;
+          float amplitude = ripple.w;
+          
+          float age = iTime - birthTime;
+          if (age < 0.0 || age > 12.0) continue;
+          
+          float dist = length(position - ripplePos);
+          float frequency = 2.5;
+          float speed = 3.0;
+          float decay = 0.4;
+          float spatialDecay = 0.08;
+          
+          // Circular wave propagating outward with decay
+          float phase = dist * frequency - age * speed;
+          float envelope = exp(-decay * age) * exp(-dist * spatialDecay);
+          // Smooth start to avoid pop-in
+          float fadeIn = smoothstep(0.0, 0.3, age);
+          rippleSum += amplitude * envelope * fadeIn * sin(phase);
+        }
+        return rippleSum;
       }
 
       float getwaves(vec2 position, int iterations) {
@@ -273,7 +303,10 @@
         vec2 cameraPos = vec2(iTime * 0.2, 1.0);
         float swellFade = smoothstep(28.0, 4.0, length(position - cameraPos));
 
-        return baseWaves + swell * swellFade * 0.35;
+        // Add user ripples
+        float rippleHeight = getripples(position);
+
+        return baseWaves + swell * swellFade * 0.35 + rippleHeight;
       }
 
       float raymarchwater(vec3 camera, vec3 start, vec3 end, float depth) {
@@ -476,6 +509,8 @@
     const logoCenterLocation = gl.getUniformLocation(program, 'u_logoCenter');
     const logoSizeLocation = gl.getUniformLocation(program, 'u_logoSize');
     const logoFadeLocation = gl.getUniformLocation(program, 'u_logoFade');
+    const ripplesLocation = gl.getUniformLocation(program, 'u_ripples');
+    const rippleCountLocation = gl.getUniformLocation(program, 'u_rippleCount');
 
     // Dither post-process program
     const ditherVertexShader = createShader(gl, gl.VERTEX_SHADER, ditherVertexShaderSource);
@@ -654,6 +689,61 @@
     const pendingLightPoints = [];
     let isDrawing = false;
 
+    // Ripple system
+    const MAX_RIPPLES = 20;
+    const ripples = []; // Array of {x, z, time, amplitude}
+    
+    function screenToWaterHit(clientX, clientY, time) {
+      const rect = canvas.getBoundingClientRect();
+      const ndcX = (clientX - rect.left) / rect.width * 2 - 1;
+      const ndcY = -((clientY - rect.top) / rect.height * 2 - 1);
+      
+      const aspect = canvas.width / canvas.height;
+      let rayX = ndcX * aspect;
+      let rayY = ndcY;
+      let rayZ = 1.5;
+      const len = Math.hypot(rayX, rayY, rayZ);
+      rayX /= len; rayY /= len; rayZ /= len;
+      
+      // Apply camera tilt (-0.05 radians around X axis)
+      const cosTilt = Math.cos(-0.05);
+      const sinTilt = Math.sin(-0.05);
+      const newY = rayY * cosTilt - rayZ * sinTilt;
+      const newZ = rayY * sinTilt + rayZ * cosTilt;
+      rayY = newY;
+      rayZ = newZ;
+      
+      // Camera position (matches shader)
+      const camX = time * 0.2;
+      const camY = 1.5; // CAMERA_HEIGHT
+      const camZ = 1.0;
+      
+      // Intersect with y=0 plane
+      if (rayY >= 0) return null; // Looking up, no water hit
+      
+      const t = -camY / rayY;
+      return { x: camX + rayX * t, z: camZ + rayZ * t };
+    }
+    
+    function addRipple(worldX, worldZ, time, amplitude = 0.15) {
+      ripples.push({ x: worldX, z: worldZ, time: time, amplitude: amplitude });
+      if (ripples.length > MAX_RIPPLES) {
+        ripples.shift();
+      }
+    }
+    
+    function getRippleUniforms() {
+      const data = new Float32Array(MAX_RIPPLES * 4);
+      for (let i = 0; i < ripples.length; i++) {
+        const r = ripples[i];
+        data[i * 4 + 0] = r.x;
+        data[i * 4 + 1] = r.z;
+        data[i * 4 + 2] = r.time;
+        data[i * 4 + 3] = r.amplitude;
+      }
+      return data;
+    }
+
     function wrapUVDelta(a, b) {
       let d = a - b;
       if (d > 0.5) d -= 1.0;
@@ -819,6 +909,15 @@
       isDrawing = false;
     });
 
+    // Ripple on click
+    canvas.addEventListener('click', (e) => {
+      const time = performance.now() * 0.001;
+      const hit = screenToWaterHit(e.clientX, e.clientY, time);
+      if (hit) {
+        addRipple(hit.x, hit.z, time, 0.08);
+      }
+    });
+
     function updateLightTexture(time) {
       if (!lastLightTime) {
         lastLightTime = time;
@@ -915,6 +1014,11 @@
       gl.activeTexture(gl.TEXTURE2);
       gl.bindTexture(gl.TEXTURE_2D, logoTexture);
       gl.uniform1i(logoTextureLocation, 2);
+      
+      // Pass ripple uniforms
+      gl.uniform4fv(ripplesLocation, getRippleUniforms());
+      gl.uniform1i(rippleCountLocation, ripples.length);
+      
       gl.drawArrays(gl.TRIANGLES, 0, 6);
 
       // Pass 2: Apply dither post-processing to screen
