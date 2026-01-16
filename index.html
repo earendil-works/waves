@@ -136,12 +136,51 @@
       }
     `;
 
+    const lightDecayFragmentShaderSource = `
+      precision highp float;
+      uniform sampler2D u_light;
+      uniform float u_decay;
+      uniform float u_cutoff;
+      varying vec2 v_texCoord;
+
+      void main() {
+        vec4 color = texture2D(u_light, v_texCoord) * u_decay;
+        float intensity = color.r;
+        intensity *= step(u_cutoff, intensity);
+        gl_FragColor = vec4(vec3(intensity), intensity);
+      }
+    `;
+
+    const lightPointVertexShaderSource = `
+      attribute vec2 a_position;
+      attribute float a_size;
+
+      void main() {
+        gl_Position = vec4(a_position * 2.0 - 1.0, 0.0, 1.0);
+        gl_PointSize = a_size;
+      }
+    `;
+
+    const lightPointFragmentShaderSource = `
+      precision highp float;
+
+      void main() {
+        vec2 coord = gl_PointCoord - 0.5;
+        float dist = length(coord) * 2.0;
+        float falloff = smoothstep(1.0, 0.0, dist);
+        float intensity = falloff * 0.12;
+        gl_FragColor = vec4(vec3(intensity), intensity);
+      }
+    `;
+
     const fragmentShaderSource = `
       precision highp float;
       uniform vec2 iResolution;
       uniform float iTime;
+      uniform sampler2D u_light;
 
       // afl_ext 2017-2024
+      #define PI 3.14159265359
       // MIT License
 
       #define DRAG_MULT 0.38
@@ -265,6 +304,12 @@
         return 0.0;
       }
 
+      vec2 skyUV(vec3 dir) {
+        float u = atan(dir.z, dir.x) / (2.0 * PI) + 0.5;
+        float v = clamp(dir.y * 0.5 + 0.5, 0.0, 1.0);
+        return vec2(u, v);
+      }
+
       vec3 aces_tonemap(vec3 color) {  
         mat3 m1 = mat3(
           0.59719, 0.07600, 0.02840,
@@ -285,7 +330,8 @@
       void mainImage(out vec4 fragColor, in vec2 fragCoord) {
         vec3 ray = getRay(fragCoord);
         if(ray.y >= 0.0) {
-          vec3 C = getAtmosphere(ray);
+          float skyLight = texture2D(u_light, skyUV(ray)).r;
+          vec3 C = getAtmosphere(ray) + vec3(1.0) * skyLight * 4.0;
           fragColor = vec4(aces_tonemap(C * 2.0), 1.0);   
           return;
         }
@@ -310,7 +356,8 @@
         vec3 R = normalize(reflect(ray, N));
         R.y = abs(R.y);
         
-        vec3 reflection = getAtmosphere(R);
+        float reflectedLight = texture2D(u_light, skyUV(R)).r;
+        vec3 reflection = getAtmosphere(R) + vec3(1.0) * reflectedLight * 4.0;
         vec3 scattering = vec3(0.08, 0.08, 0.09) * (0.2 + (waterHitPos.y + WATER_DEPTH) / WATER_DEPTH);
 
         vec3 C = fresnel * reflection + scattering;
@@ -368,31 +415,54 @@
     const positionLocation = gl.getAttribLocation(program, 'position');
     const resolutionLocation = gl.getUniformLocation(program, 'iResolution');
     const timeLocation = gl.getUniformLocation(program, 'iTime');
+    const lightTextureLocation = gl.getUniformLocation(program, 'u_light');
 
     // Dither post-process program
     const ditherVertexShader = createShader(gl, gl.VERTEX_SHADER, ditherVertexShaderSource);
     const ditherFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, ditherFragmentShaderSource);
     const ditherProgram = createProgram(gl, ditherVertexShader, ditherFragmentShader);
 
+    const lightDecayFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, lightDecayFragmentShaderSource);
+    const lightDecayProgram = createProgram(gl, ditherVertexShader, lightDecayFragmentShader);
+
+    const lightPointVertexShader = createShader(gl, gl.VERTEX_SHADER, lightPointVertexShaderSource);
+    const lightPointFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, lightPointFragmentShaderSource);
+    const lightPointProgram = createProgram(gl, lightPointVertexShader, lightPointFragmentShader);
+
     const ditherPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, ditherPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
     const ditherPositionLocation = gl.getAttribLocation(ditherProgram, 'a_position');
+    const lightDecayPositionLocation = gl.getAttribLocation(lightDecayProgram, 'a_position');
 
     const ditherTexCoordBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, ditherTexCoordBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0, 1,0, 0,1, 1,1]), gl.STATIC_DRAW);
     const ditherTexCoordLocation = gl.getAttribLocation(ditherProgram, 'a_texCoord');
+    const lightDecayTexCoordLocation = gl.getAttribLocation(lightDecayProgram, 'a_texCoord');
 
     const ditherResolutionLocation = gl.getUniformLocation(ditherProgram, 'u_resolution');
     const ditherImageLocation = gl.getUniformLocation(ditherProgram, 'u_image');
     const ditherTimeLocation = gl.getUniformLocation(ditherProgram, 'u_time');
+
+    const lightDecayImageLocation = gl.getUniformLocation(lightDecayProgram, 'u_light');
+    const lightDecayFactorLocation = gl.getUniformLocation(lightDecayProgram, 'u_decay');
+    const lightDecayCutoffLocation = gl.getUniformLocation(lightDecayProgram, 'u_cutoff');
+
+    const lightPointPositionLocation = gl.getAttribLocation(lightPointProgram, 'a_position');
+    const lightPointSizeLocation = gl.getAttribLocation(lightPointProgram, 'a_size');
+    const lightPointBuffer = gl.createBuffer();
 
     // Framebuffer for render-to-texture
     let framebuffer = null;
     let renderTexture = null;
     let fbWidth = 0;
     let fbHeight = 0;
+
+    let lightFramebuffers = [null, null];
+    let lightTextures = [null, null];
+    let lightWriteIndex = 0;
+    let lastLightTime = 0;
 
     function setupFramebuffer(width, height) {
       if (framebuffer && fbWidth === width && fbHeight === height) return;
@@ -419,12 +489,41 @@
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
+    function createLightTexture(width, height) {
+      const texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return texture;
+    }
+
+    function setupLightFramebuffers(width, height) {
+      for (let i = 0; i < 2; i++) {
+        if (lightFramebuffers[i]) {
+          gl.deleteFramebuffer(lightFramebuffers[i]);
+          gl.deleteTexture(lightTextures[i]);
+        }
+        lightTextures[i] = createLightTexture(width, height);
+        lightFramebuffers[i] = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, lightFramebuffers[i]);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lightTextures[i], 0);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      lightWriteIndex = 0;
+    }
+
     function resize() {
       // Render at reduced resolution
       const scale = 0.4;
       canvas.width = window.innerWidth * window.devicePixelRatio * scale;
       canvas.height = window.innerHeight * window.devicePixelRatio * scale;
       setupFramebuffer(canvas.width, canvas.height);
+      setupLightFramebuffers(canvas.width, canvas.height);
     }
 
     window.addEventListener('resize', resize);
@@ -433,6 +532,131 @@
     // FPS tracking
     let frameCount = 0;
     let lastFpsUpdate = 0;
+
+    const pendingLightPoints = [];
+    let isDrawing = false;
+
+    function screenToSkyUV(event) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = 1 - (event.clientY - rect.top) / rect.height;
+      if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+
+      const aspect = rect.width / rect.height;
+      const uvX = x * 2 - 1;
+      const uvY = y * 2 - 1;
+      const projX = uvX * aspect;
+      const projY = uvY;
+      const projZ = 1.5;
+
+      const projLen = Math.hypot(projX, projY, projZ);
+      let rayX = projX / projLen;
+      let rayY = projY / projLen;
+      let rayZ = projZ / projLen;
+
+      const cosTilt = Math.cos(-0.05);
+      const sinTilt = Math.sin(-0.05);
+      const rotatedY = rayY * cosTilt + rayZ * sinTilt;
+      const rotatedZ = -rayY * sinTilt + rayZ * cosTilt;
+      rayY = rotatedY;
+      rayZ = rotatedZ;
+
+      if (rayY < 0) return null;
+
+      const u = ((Math.atan2(rayZ, rayX) / (2 * Math.PI)) + 0.5) % 1;
+      const v = Math.min(1, Math.max(0, rayY * 0.5 + 0.5));
+      return { u, v };
+    }
+
+    function queueLightPoints(event) {
+      const skyUV = screenToSkyUV(event);
+      if (!skyUV) return;
+
+      const sprinkleCount = 3;
+      for (let i = 0; i < sprinkleCount; i++) {
+        const jitterX = (Math.random() - 0.5) * 0.015;
+        const jitterY = (Math.random() - 0.5) * 0.015;
+        const size = (Math.random() * 6 + 4) * window.devicePixelRatio;
+        const px = Math.min(1, Math.max(0, skyUV.u + jitterX));
+        const py = Math.min(1, Math.max(0, skyUV.v + jitterY));
+        pendingLightPoints.push(px, py, size);
+      }
+
+      if (pendingLightPoints.length > 1800) {
+        pendingLightPoints.splice(0, pendingLightPoints.length - 1800);
+      }
+    }
+
+    canvas.addEventListener('pointerdown', (event) => {
+      isDrawing = true;
+      queueLightPoints(event);
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (isDrawing) {
+        queueLightPoints(event);
+      }
+    });
+
+    window.addEventListener('pointerup', () => {
+      isDrawing = false;
+    });
+
+    function updateLightTexture(time) {
+      if (!lastLightTime) {
+        lastLightTime = time;
+      }
+      const delta = Math.max(0, (time - lastLightTime) * 0.005);
+      lastLightTime = time;
+      const fadeSeconds = 10;
+      const targetIntensity = 0.12;
+      const decayFloor = (1 / 255) / targetIntensity;
+      const decayCutoff = 1.1 / 255;
+      const decay = Math.pow(decayFloor, delta / fadeSeconds);
+      const readIndex = lightWriteIndex;
+      const writeIndex = 1 - lightWriteIndex;
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, lightFramebuffers[writeIndex]);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(lightDecayProgram);
+
+      gl.enableVertexAttribArray(lightDecayPositionLocation);
+      gl.bindBuffer(gl.ARRAY_BUFFER, ditherPositionBuffer);
+      gl.vertexAttribPointer(lightDecayPositionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      gl.enableVertexAttribArray(lightDecayTexCoordLocation);
+      gl.bindBuffer(gl.ARRAY_BUFFER, ditherTexCoordBuffer);
+      gl.vertexAttribPointer(lightDecayTexCoordLocation, 2, gl.FLOAT, false, 0, 0);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, lightTextures[readIndex]);
+      gl.uniform1i(lightDecayImageLocation, 0);
+      gl.uniform1f(lightDecayFactorLocation, decay);
+      gl.uniform1f(lightDecayCutoffLocation, decayCutoff);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+      if (pendingLightPoints.length > 0) {
+        gl.useProgram(lightPointProgram);
+        gl.bindBuffer(gl.ARRAY_BUFFER, lightPointBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pendingLightPoints), gl.DYNAMIC_DRAW);
+
+        gl.enableVertexAttribArray(lightPointPositionLocation);
+        gl.vertexAttribPointer(lightPointPositionLocation, 2, gl.FLOAT, false, 12, 0);
+
+        gl.enableVertexAttribArray(lightPointSizeLocation);
+        gl.vertexAttribPointer(lightPointSizeLocation, 1, gl.FLOAT, false, 12, 8);
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE);
+        gl.drawArrays(gl.POINTS, 0, pendingLightPoints.length / 3);
+        gl.disable(gl.BLEND);
+
+        pendingLightPoints.length = 0;
+      }
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      lightWriteIndex = writeIndex;
+    }
 
     function render(time) {
       // Update FPS counter
@@ -443,6 +667,8 @@
         lastFpsUpdate = time;
       }
 
+      updateLightTexture(time);
+
       // Pass 1: Render ocean waves to framebuffer
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -452,6 +678,9 @@
       gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
       gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
       gl.uniform1f(timeLocation, time * 0.001);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, lightTextures[lightWriteIndex]);
+      gl.uniform1i(lightTextureLocation, 1);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
 
       // Pass 2: Apply dither post-processing to screen
