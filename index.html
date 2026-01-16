@@ -25,6 +25,63 @@
       }
     `;
 
+    // Dither post-process shaders
+    const ditherVertexShaderSource = `
+      attribute vec2 a_position;
+      attribute vec2 a_texCoord;
+      varying vec2 v_texCoord;
+      void main() {
+        gl_Position = vec4(a_position, 0.0, 1.0);
+        v_texCoord = a_texCoord;
+      }
+    `;
+
+    const ditherFragmentShaderSource = `
+      precision highp float;
+      uniform sampler2D u_image;
+      uniform vec2 u_resolution;
+      varying vec2 v_texCoord;
+
+      // Hash function for stable random noise
+      float hash(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+
+      // Atkinson-style threshold pattern (4x4)
+      float atkinsonThreshold(vec2 pos) {
+        int x = int(mod(pos.x, 4.0));
+        int y = int(mod(pos.y, 4.0));
+        int idx = y * 4 + x;
+        float thresholds[16];
+        thresholds[0] = 0.0;    thresholds[1] = 12.0;  thresholds[2] = 3.0;   thresholds[3] = 15.0;
+        thresholds[4] = 8.0;   thresholds[5] = 4.0;   thresholds[6] = 11.0;  thresholds[7] = 7.0;
+        thresholds[8] = 2.0;   thresholds[9] = 14.0;  thresholds[10] = 1.0;  thresholds[11] = 13.0;
+        thresholds[12] = 10.0; thresholds[13] = 6.0;  thresholds[14] = 9.0;  thresholds[15] = 5.0;
+        for (int i = 0; i < 16; i++) {
+          if (i == idx) return thresholds[i] / 16.0;
+        }
+        return 0.0;
+      }
+
+      void main() {
+        vec4 color = texture2D(u_image, v_texCoord);
+        float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+
+        // Atkinson-style dithering with contrast boost
+        gray = gray * 1.2 - 0.1;
+        gray = clamp(gray, 0.0, 1.0);
+        float threshold = atkinsonThreshold(gl_FragCoord.xy);
+
+        // Add small offset so gray=0 always renders as dark
+        float dithered = step(threshold + 0.1, gray);
+        vec3 dark = vec3(0.235);   // #3c3c3c
+        vec3 light = vec3(0.643);  // #a4a4a4
+        gl_FragColor = vec4(mix(dark, light, dithered), 1.0);
+      }
+    `;
+
     const fragmentShaderSource = `
       precision highp float;
       uniform vec2 iResolution;
@@ -110,7 +167,7 @@
         vec3 proj = normalize(vec3(uv.x, uv.y, 1.5));
         // Fixed camera angle (no mouse movement) - tilted down to show only water
         return createRotationMatrixAxisAngle(vec3(0.0, -1.0, 0.0), 0.0) 
-          * createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), -0.63)
+          * createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), -0.33)
           * proj;
       }
 
@@ -233,6 +290,7 @@
       return program;
     }
 
+    // Ocean wave program
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
     const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
     const program = createProgram(gl, vertexShader, fragmentShader);
@@ -248,12 +306,61 @@
     const resolutionLocation = gl.getUniformLocation(program, 'iResolution');
     const timeLocation = gl.getUniformLocation(program, 'iTime');
 
+    // Dither post-process program
+    const ditherVertexShader = createShader(gl, gl.VERTEX_SHADER, ditherVertexShaderSource);
+    const ditherFragmentShader = createShader(gl, gl.FRAGMENT_SHADER, ditherFragmentShaderSource);
+    const ditherProgram = createProgram(gl, ditherVertexShader, ditherFragmentShader);
+
+    const ditherPositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, ditherPositionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    const ditherPositionLocation = gl.getAttribLocation(ditherProgram, 'a_position');
+
+    const ditherTexCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, ditherTexCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0, 1,0, 0,1, 1,1]), gl.STATIC_DRAW);
+    const ditherTexCoordLocation = gl.getAttribLocation(ditherProgram, 'a_texCoord');
+
+    const ditherResolutionLocation = gl.getUniformLocation(ditherProgram, 'u_resolution');
+    const ditherImageLocation = gl.getUniformLocation(ditherProgram, 'u_image');
+
+    // Framebuffer for render-to-texture
+    let framebuffer = null;
+    let renderTexture = null;
+    let fbWidth = 0;
+    let fbHeight = 0;
+
+    function setupFramebuffer(width, height) {
+      if (framebuffer && fbWidth === width && fbHeight === height) return;
+      
+      if (framebuffer) {
+        gl.deleteFramebuffer(framebuffer);
+        gl.deleteTexture(renderTexture);
+      }
+
+      fbWidth = width;
+      fbHeight = height;
+
+      renderTexture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, renderTexture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+      framebuffer = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, renderTexture, 0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
     function resize() {
       // Render at reduced resolution
-      const scale = 0.7;
+      const scale = 0.4;
       canvas.width = window.innerWidth * window.devicePixelRatio * scale;
       canvas.height = window.innerHeight * window.devicePixelRatio * scale;
-      gl.viewport(0, 0, canvas.width, canvas.height);
+      setupFramebuffer(canvas.width, canvas.height);
     }
 
     window.addEventListener('resize', resize);
@@ -273,6 +380,9 @@
         lastFpsUpdate = time;
       }
 
+      // Pass 1: Render ocean waves to framebuffer
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.viewport(0, 0, canvas.width, canvas.height);
       gl.useProgram(program);
       gl.enableVertexAttribArray(positionLocation);
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -280,6 +390,27 @@
       gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
       gl.uniform1f(timeLocation, time * 0.001);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      // Pass 2: Apply dither post-processing to screen
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(ditherProgram);
+
+      gl.enableVertexAttribArray(ditherPositionLocation);
+      gl.bindBuffer(gl.ARRAY_BUFFER, ditherPositionBuffer);
+      gl.vertexAttribPointer(ditherPositionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      gl.enableVertexAttribArray(ditherTexCoordLocation);
+      gl.bindBuffer(gl.ARRAY_BUFFER, ditherTexCoordBuffer);
+      gl.vertexAttribPointer(ditherTexCoordLocation, 2, gl.FLOAT, false, 0, 0);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, renderTexture);
+      gl.uniform1i(ditherImageLocation, 0);
+      gl.uniform2f(ditherResolutionLocation, canvas.width, canvas.height);
+
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
       requestAnimationFrame(render);
     }
 
