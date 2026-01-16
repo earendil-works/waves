@@ -7,10 +7,12 @@
   <style>
     * { margin: 0; padding: 0; }
     body { overflow: hidden; }
-    canvas { display: block; width: 100vw; height: 100vh; }
+    canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
+    #fps { position: fixed; top: 10px; left: 10px; color: white; font: 16px monospace; background: rgba(0,0,0,0.5); padding: 5px 10px; z-index: 100; }
   </style>
 </head>
 <body>
+  <div id="fps">FPS: --</div>
   <canvas id="canvas"></canvas>
   <script>
     const canvas = document.getElementById('canvas');
@@ -247,8 +249,8 @@
     const timeLocation = gl.getUniformLocation(program, 'iTime');
 
     function resize() {
-      // Use lower resolution for better performance (0.5 = half res, 1.0 = full res)
-      const scale = 0.75;
+      // Render at reduced resolution
+      const scale = 0.7;
       canvas.width = window.innerWidth * window.devicePixelRatio * scale;
       canvas.height = window.innerHeight * window.devicePixelRatio * scale;
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -257,7 +259,20 @@
     window.addEventListener('resize', resize);
     resize();
 
+    // FPS tracking
+    let frameCount = 0;
+    let lastFpsUpdate = 0;
+    const fpsDisplay = document.getElementById('fps');
+
     function render(time) {
+      // Update FPS counter
+      frameCount++;
+      if (time - lastFpsUpdate >= 1000) {
+        fpsDisplay.textContent = `FPS: ${frameCount} | ${canvas.width}x${canvas.height}`;
+        frameCount = 0;
+        lastFpsUpdate = time;
+      }
+
       gl.useProgram(program);
       gl.enableVertexAttribArray(positionLocation);
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
