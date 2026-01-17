@@ -208,6 +208,39 @@
 
     updateThemeToggle();
 
+    const THEME_FADE_DURATION = 900;
+    let nightBlend = getNightPreference() ? 1.0 : 0.0;
+    let nightFadeStart = null;
+    let nightFadeFrom = nightBlend;
+    let nightFadeTo = nightBlend;
+
+    function easeInOut(t) {
+      return t * t * (3.0 - 2.0 * t);
+    }
+
+    function updateNightBlend(time) {
+      const desired = getNightPreference() ? 1.0 : 0.0;
+      if (desired !== nightFadeTo) {
+        nightFadeFrom = nightBlend;
+        nightFadeTo = desired;
+        nightFadeStart = time;
+      }
+
+      if (nightFadeStart !== null) {
+        const progress = Math.min((time - nightFadeStart) / THEME_FADE_DURATION, 1);
+        const eased = easeInOut(progress);
+        nightBlend = nightFadeFrom + (nightFadeTo - nightFadeFrom) * eased;
+        if (progress >= 1) {
+          nightFadeStart = null;
+          nightBlend = nightFadeTo;
+        }
+      } else {
+        nightBlend = nightFadeTo;
+      }
+
+      return nightBlend;
+    }
+
     const vertexShaderSource = `
       attribute vec2 position;
       void main() {
@@ -377,6 +410,7 @@
       #define RAYMARCH_STEPS ${settings.raymarchSteps}
       #define FBM_OCTAVES ${settings.fbmOctaves}
       #define LOGO_INTENSITY 3.5
+      #define NIGHT_EPS 0.001
 
       float hash21(vec2 p) {
         return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -671,9 +705,16 @@
         vec3 ray = getRay(fragCoord);
         if(ray.y >= 0.0) {
           float skyLight = texture2D(u_light, skyUV(ray)).r;
-          vec3 daySky = getDaySky(ray, skyLight);
-          vec3 nightSky = getNightSky(ray, skyLight);
-          vec3 C = mix(daySky, nightSky, u_night);
+          vec3 C;
+          if (u_night <= NIGHT_EPS) {
+            C = getDaySky(ray, skyLight);
+          } else if (u_night >= 1.0 - NIGHT_EPS) {
+            C = getNightSky(ray, skyLight);
+          } else {
+            vec3 daySky = getDaySky(ray, skyLight);
+            vec3 nightSky = getNightSky(ray, skyLight);
+            C = mix(daySky, nightSky, u_night);
+          }
           fragColor = vec4(aces_tonemap(C * 2.0), 1.0);   
           return;
         }
@@ -700,9 +741,17 @@
         
         float reflectedLight = texture2D(u_light, skyUV(R)).r;
         float reflectedLogo = sampleLogo(skyUV(R));
-        vec3 dayReflection = getDaySky(R, reflectedLight);
-        vec3 nightReflection = getNightSky(R, reflectedLight);
-        vec3 reflection = mix(dayReflection, nightReflection, u_night) + vec3(1.0) * (reflectedLogo * LOGO_INTENSITY);
+        vec3 reflection;
+        if (u_night <= NIGHT_EPS) {
+          reflection = getDaySky(R, reflectedLight);
+        } else if (u_night >= 1.0 - NIGHT_EPS) {
+          reflection = getNightSky(R, reflectedLight);
+        } else {
+          vec3 dayReflection = getDaySky(R, reflectedLight);
+          vec3 nightReflection = getNightSky(R, reflectedLight);
+          reflection = mix(dayReflection, nightReflection, u_night);
+        }
+        reflection += vec3(1.0) * (reflectedLogo * LOGO_INTENSITY);
         vec3 scatteringBase = mix(vec3(0.08, 0.08, 0.09), vec3(0.02, 0.02, 0.03), u_night);
         vec3 scattering = scatteringBase * (0.2 + (waterHitPos.y + WATER_DEPTH) / WATER_DEPTH);
 
@@ -1343,6 +1392,8 @@
       }
       const logoProgress = Math.min(Math.max((time - logoFadeStart) / LOGO_FADE_DURATION, 0), 1);
       const logoFade = logoProgress * LOGO_FADE_TARGET;
+      const nightValue = updateNightBlend(time);
+      const ambientIntensity = 1.0 + (0.28 - 1.0) * nightValue;
 
       // Pass 1: Render ocean waves to framebuffer
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
@@ -1356,9 +1407,8 @@
       gl.uniform2f(logoCenterLocation, logoCenter[0], logoCenter[1]);
       gl.uniform2f(logoSizeLocation, logoSize[0], logoSize[1]);
       gl.uniform1f(logoFadeLocation, logoFade);
-      const nightValue = getNightPreference() ? 1.0 : 0.0;
       gl.uniform1f(nightLocation, nightValue);
-      gl.uniform1f(ambientLocation, getNightPreference() ? 0.28 : 1.0);
+      gl.uniform1f(ambientLocation, ambientIntensity);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, lightTextures[lightWriteIndex]);
       gl.uniform1i(lightTextureLocation, 1);
