@@ -259,7 +259,7 @@
       }
     `;
 
-    // Film grain post-process shader (MIT licensed, based on martinsh/devlog-film-grain)
+    // Film grain post-process shader based on martins upitis's film grain
     const ditherFragmentShaderSource = `
       precision highp float;
       uniform sampler2D u_image;
@@ -382,6 +382,7 @@
       }
     `;
 
+    // based on afl_ext's ocean weaves shader (MIT licensed)
     function buildFragmentShader(quality) {
       const settings = QUALITY_SETTINGS[quality];
       return `
