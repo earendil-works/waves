@@ -1,7 +1,7 @@
 * { margin: 0; padding: 0; }
 html, body {
   overflow: hidden;
-  cursor: url('cursor-light.svg') 12 12, auto;
+  cursor: url('/static/cursor-light.svg') 12 12, auto;
 }
 * { cursor: inherit; }
 canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
@@ -125,7 +125,7 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   width: min(780px, 92vw);
   max-height: calc(100vh - 120px);
   padding: 58px 70px 52px;
-  background: url('paper.png') center/256px 256px;
+  background: url('/static/paper.png') center/256px 256px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(25, 20, 12, 0.2);
   overflow: auto;
@@ -135,13 +135,13 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   opacity: 0;
   transform: translateY(12px);
   transition: opacity 0.35s ease, transform 0.35s ease;
-  cursor: url('cursor-dark.svg') 12 12, auto;
+  cursor: url('/static/cursor-dark.svg') 12 12, auto;
 }
 
 .theme-night .updates-letter {
-  background: url('paper-dark.png') center/256px 256px;
+  background: url('/static/paper-dark.png') center/256px 256px;
   color: rgba(240, 240, 240, 0.8);
-  cursor: url('cursor-light.svg') 12 12, auto;
+  cursor: url('/static/cursor-light.svg') 12 12, auto;
 }
 
 .updates-overlay:target .updates-letter {
@@ -156,12 +156,22 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   text-decoration: none;
   color: rgba(25, 24, 22, 0.7);
   font-size: inherit;
-  cursor: url('cursor-dark.svg') 12 12, pointer;
+  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+}
+
+.updates-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.updates-overlay.is-open .updates-letter {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .theme-night .updates-dismiss {
   color: rgba(240, 240, 240, 0.8);
-  cursor: url('cursor-light.svg') 12 12, pointer;
+  cursor: url('/static/cursor-light.svg') 12 12, pointer;
 }
 
 .updates-dismiss:hover {
@@ -187,11 +197,11 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   color: inherit;
   text-decoration: none;
   font-weight: 700;
-  cursor: url('cursor-dark.svg') 12 12, pointer;
+  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
 }
 
 .theme-night .letter-body a {
-  cursor: url('cursor-light.svg') 12 12, pointer;
+  cursor: url('/static/cursor-light.svg') 12 12, pointer;
 }
 
 .letter-body a:hover {
@@ -223,11 +233,11 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
 .letter-footer a {
   color: inherit;
   text-decoration: none;
-  cursor: url('cursor-dark.svg') 12 12, pointer;
+  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
 }
 
 .theme-night .letter-footer a {
-  cursor: url('cursor-light.svg') 12 12, pointer;
+  cursor: url('/static/cursor-light.svg') 12 12, pointer;
 }
 
 .letter-footer a:hover {
