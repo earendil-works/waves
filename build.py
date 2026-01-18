@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# dependencies = ["minijinja", "pyyaml", "markdown"]
+# dependencies = ["minijinja", "pyyaml", "markdown", "watchdog"]
 # ///
 from __future__ import annotations
 
@@ -8,8 +8,13 @@ import argparse
 import os
 import re
 import shutil
+import threading
+import time
+import traceback
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any, Callable, Tuple
+from urllib.parse import urlparse
 
 from minijinja import Environment, safe, load_from_path
 
@@ -108,14 +113,251 @@ def build() -> None:
         output_path.write_text(rendered)
 
 
+HOST = "127.0.0.1"
+PORT = 8000
+DEBOUNCE_DELAY = 0.3
+IGNORE_DIRS = {"_build", "_templates", "_static", ".git"}
+
+# Global dictionary to track reload events by connection ID
+RELOAD_EVENTS: dict[int, threading.Event] = {}
+RELOAD_EVENTS_LOCK = threading.Lock()
+
+RELOAD_SCRIPT = """
+<script>
+(function() {
+  console.log('Live reload enabled');
+  const eventSource = new EventSource('/sse');
+  eventSource.onmessage = function(event) {
+    if (event.data === 'reload') {
+      console.log('Reloading page due to file changes...');
+      location.reload();
+    }
+  };
+  eventSource.onerror = function(event) {
+    console.log('Live reload connection error, retrying...');
+    setTimeout(() => location.reload(), 1000);
+  };
+})();
+</script>
+"""
+
+
+class LiveReloadHandler(SimpleHTTPRequestHandler):
+    """HTTP handler with live reload support via SSE."""
+
+    def __init__(self, *args, **kwargs):
+        try:
+            super().__init__(*args, **kwargs)
+        except (ConnectionResetError, BrokenPipeError):
+            pass
+
+    def do_GET(self):
+        try:
+            if self.path == "/sse":
+                self.handle_sse()
+            else:
+                self.handle_file_with_reload()
+        except (ConnectionResetError, BrokenPipeError):
+            pass
+
+    def handle_sse(self):
+        """Handle Server-Sent Events for live reload."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+
+        connection_id = id(self)
+        try:
+            self.wfile.write(b"data: connected\n\n")
+            self.wfile.flush()
+
+            reload_event = threading.Event()
+            with RELOAD_EVENTS_LOCK:
+                RELOAD_EVENTS[connection_id] = reload_event
+
+            while True:
+                try:
+                    if reload_event.wait(timeout=0.1):
+                        self.wfile.write(b"data: reload\n\n")
+                        self.wfile.flush()
+                        break
+                    else:
+                        self.wfile.write(b": keepalive\n\n")
+                        self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    break
+        finally:
+            with RELOAD_EVENTS_LOCK:
+                RELOAD_EVENTS.pop(connection_id, None)
+
+    def handle_file_with_reload(self):
+        """Handle regular file requests, injecting reload script into HTML."""
+        parsed_path = urlparse(self.path)
+        file_path = parsed_path.path.lstrip("/")
+
+        if not file_path:
+            file_path = "index.html"
+        elif file_path.endswith("/"):
+            file_path = file_path + "index.html"
+
+        full_path = Path(self.directory) / file_path
+
+        try:
+            if full_path.exists() and full_path.is_file() and file_path.endswith(".html"):
+                content = full_path.read_text(encoding="utf-8")
+                if "</body>" in content:
+                    content = content.replace("</body>", f"{RELOAD_SCRIPT}</body>")
+                else:
+                    content += RELOAD_SCRIPT
+
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content.encode("utf-8"))))
+                self.end_headers()
+                self.wfile.write(content.encode("utf-8"))
+            else:
+                super().do_GET()
+        except Exception:
+            super().do_GET()
+
+    def log_message(self, format, *args):
+        pass
+
+
+def notify_reload():
+    """Signal all SSE clients to reload."""
+    with RELOAD_EVENTS_LOCK:
+        for event in RELOAD_EVENTS.values():
+            event.set()
+        RELOAD_EVENTS.clear()
+
+
+class BackgroundBuilder:
+    """File watcher that triggers builds on changes."""
+
+    def __init__(self, on_build_complete: Callable[[], None] | None = None):
+        self.debounce_delay = DEBOUNCE_DELAY
+        self.last_change_time = 0.0
+        self.build_thread: threading.Thread | None = None
+        self.stop_event = threading.Event()
+        self.build_lock = threading.Lock()
+        self.is_building = False
+        self.on_build_complete = on_build_complete
+
+    def should_ignore(self, path: str) -> bool:
+        """Check if a path should be ignored."""
+        path_obj = Path(path)
+        try:
+            rel = path_obj.relative_to(ROOT)
+            parts = rel.parts
+            return any(part in IGNORE_DIRS or part.startswith(".") for part in parts)
+        except ValueError:
+            return True
+
+    def _on_change(self, event):
+        """Handle any file system change."""
+        if event.is_directory or self.should_ignore(event.src_path):
+            return
+        self.last_change_time = time.time()
+
+    def _build_loop(self):
+        """Background thread that triggers builds after debounce delay."""
+        while not self.stop_event.is_set():
+            should_build = False
+
+            with self.build_lock:
+                if (
+                    self.last_change_time > 0
+                    and time.time() - self.last_change_time > self.debounce_delay
+                    and not self.is_building
+                ):
+                    should_build = True
+                    self.is_building = True
+                    build_trigger_time = self.last_change_time
+
+            if should_build:
+                try:
+                    print("Rebuilding...")
+                    build()
+                    print("Done.")
+                    if self.on_build_complete:
+                        self.on_build_complete()
+                except Exception:
+                    traceback.print_exc()
+                finally:
+                    with self.build_lock:
+                        self.is_building = False
+                        if self.last_change_time == build_trigger_time:
+                            self.last_change_time = 0
+
+            time.sleep(0.1)
+
+    def start(self):
+        """Start watching for file changes."""
+        from watchdog.observers import Observer
+        from watchdog.events import FileSystemEventHandler
+
+        # Initial build
+        build()
+
+        # Set up file watcher
+        handler = FileSystemEventHandler()
+        handler.on_created = self._on_change
+        handler.on_modified = self._on_change
+        handler.on_deleted = self._on_change
+        handler.on_moved = self._on_change
+
+        self.observer = Observer()
+        self.observer.schedule(handler, str(ROOT), recursive=True)
+        self.observer.start()
+
+        # Start build thread
+        self.build_thread = threading.Thread(target=self._build_loop, daemon=True)
+        self.build_thread.start()
+
+    def stop(self):
+        """Stop the file watcher."""
+        self.stop_event.set()
+        self.observer.stop()
+        self.observer.join()
+        if self.build_thread:
+            self.build_thread.join(timeout=5)
+
+
+def serve() -> None:
+    """Serve with file watching and live reload."""
+    background_builder = BackgroundBuilder(on_build_complete=notify_reload)
+    background_builder.start()
+
+    try:
+        print(f"Serving on http://{HOST}:{PORT}/ with live reload")
+        server = ThreadingHTTPServer(
+            (HOST, PORT),
+            lambda *args: LiveReloadHandler(*args, directory=str(BUILD_DIR)),
+        )
+        server.allow_reuse_address = True
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping...")
+        background_builder.stop()
+    except Exception as e:
+        print(f"Server error: {e}")
+        background_builder.stop()
+        raise
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build the site.")
-    parser.add_argument("command", nargs="?", default="build")
+    parser.add_argument("command", nargs="?", default="build", choices=["build", "serve"])
     args = parser.parse_args()
 
-    if args.command != "build":
-        raise SystemExit(f"Unknown command: {args.command}")
-    build()
+    if args.command == "serve":
+        serve()
+    else:
+        build()
 
 
 if __name__ == "__main__":

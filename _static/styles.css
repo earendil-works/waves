@@ -115,9 +115,16 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   overflow-y: auto;
 }
 
-.updates-overlay:target {
+.updates-overlay:target,
+.updates-overlay.is-open {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Closing animation - transition back to hidden state */
+.updates-overlay.is-closing {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .updates-letter {
@@ -144,9 +151,16 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   cursor: url('/static/cursor-light.svg') 12 12, auto;
 }
 
-.updates-overlay:target .updates-letter {
+.updates-overlay:target .updates-letter,
+.updates-overlay.is-open .updates-letter {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Closing animation - slide out and fade */
+.updates-overlay.is-closing .updates-letter {
+  opacity: 0;
+  transform: translateY(12px);
 }
 
 .updates-dismiss {
@@ -157,16 +171,6 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   color: rgba(25, 24, 22, 0.7);
   font-size: inherit;
   cursor: url('/static/cursor-dark.svg') 12 12, pointer;
-}
-
-.updates-overlay.is-open {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.updates-overlay.is-open .updates-letter {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .theme-night .updates-dismiss {

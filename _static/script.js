@@ -1,5 +1,63 @@
+// Overlay animation handling
+(function() {
+  function openOverlays() {
+    document.querySelectorAll('.updates-overlay').forEach(function(overlay) {
+      void overlay.offsetWidth;
+      overlay.classList.add('is-open');
+      overlay.setAttribute('aria-hidden', 'false');
+    });
+  }
+  openOverlays();
+
+  // Only add listeners once
+  if (window.__overlayListenersAdded) return;
+  window.__overlayListenersAdded = true;
+
+  document.body.addEventListener('htmx:afterSettle', openOverlays);
+
+  function closeOverlayWithAnimation(overlay, callback) {
+    overlay.classList.add('is-closing');
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+    setTimeout(callback, 350); // Match CSS transition duration
+  }
+
+  function navigateToIndex() {
+    htmx.ajax('GET', '/', {target: 'div.body', swap: 'outerHTML'}).then(function() {
+      history.pushState({}, '', '/');
+    });
+  }
+
+  // Handle dismiss link clicks - animate then navigate
+  document.body.addEventListener('click', function(event) {
+    var dismissLink = event.target.closest('.updates-dismiss');
+    if (dismissLink) {
+      event.preventDefault();
+      event.stopPropagation();
+      var overlay = dismissLink.closest('.updates-overlay');
+      if (overlay) {
+        closeOverlayWithAnimation(overlay, navigateToIndex);
+      }
+    }
+  });
+
+  // Handle backdrop clicks
+  document.body.addEventListener('click', function(event) {
+    var overlay = event.target.closest('.updates-overlay');
+    if (overlay && event.target === overlay) {
+      event.preventDefault();
+      closeOverlayWithAnimation(overlay, navigateToIndex);
+    }
+  });
+})();
+
+// WebGL ocean rendering (runs once)
+(function() {
+if (window.__earendilInitialized) return;
+window.__earendilInitialized = true;
+
 // Show FPS counter only if ?fps is in URL
-const fpsDisplay = document.getElementById('fps');
+var fpsDisplay = document.getElementById('fps');
 if (new URLSearchParams(window.location.search).has('fps')) {
   fpsDisplay.classList.add('visible');
 }
@@ -123,39 +181,7 @@ themeToggle.addEventListener('click', () => {
 
 updateThemeToggle();
 
-const updatesOverlays = document.querySelectorAll('.updates-overlay');
-const updatesDismissLinks = document.querySelectorAll('.updates-dismiss');
 
-function updateOverlayState() {
-  const activeId = window.location.hash.slice(1);
-  updatesOverlays.forEach((overlay) => {
-    overlay.setAttribute('aria-hidden', overlay.id === activeId ? 'false' : 'true');
-  });
-}
-
-function closeUpdatesOverlay() {
-  window.location.hash = '';
-  updateOverlayState();
-}
-
-updatesOverlays.forEach((overlay) => {
-  overlay.addEventListener('click', (event) => {
-    if (event.target === overlay) {
-      event.preventDefault();
-      closeUpdatesOverlay();
-    }
-  });
-});
-
-updatesDismissLinks.forEach((link) => {
-  link.addEventListener('click', (event) => {
-    event.preventDefault();
-    closeUpdatesOverlay();
-  });
-});
-
-window.addEventListener('hashchange', updateOverlayState);
-updateOverlayState();
 
 const THEME_FADE_DURATION = 900;
 let nightBlend = getNightPreference() ? 1.0 : 0.0;
@@ -1403,3 +1429,5 @@ setTimeout(() => {
     logoLinks.style.opacity = `${LOGO_FADE_TARGET}`;
   }
 }, LOGO_FADE_DELAY);
+
+})();
