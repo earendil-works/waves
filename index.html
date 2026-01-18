@@ -279,10 +279,12 @@
       uniform float u_night;
       varying vec2 v_texCoord;
 
-      #define INTENSITY 0.18
-      #define SPEED 2.0
+      #define INTENSITY_DAY 0.4
+      #define INTENSITY_NIGHT 0.12
+      #define SPEED 1.5
       #define MEAN 0.0
-      #define VARIANCE 0.5
+      #define VARIANCE_DAY 0.75
+      #define VARIANCE_NIGHT 0.6
 
       float gaussian(float z, float u, float o) {
         return (1.0 / (o * sqrt(2.0 * 3.1415))) * exp(-(((z - u) * (z - u)) / (2.0 * (o * o))));
@@ -299,11 +301,12 @@
         vec2 uv = gl_FragCoord.xy / u_resolution;
         float seed = dot(uv, vec2(12.9898, 78.233));
         float noise = fract(sin(seed) * 43758.5453 + t);
-        noise = gaussian(noise, MEAN, VARIANCE * VARIANCE);
+        float variance = mix(VARIANCE_DAY, VARIANCE_NIGHT, u_night);
+        noise = gaussian(noise, MEAN, variance * variance);
         
         // Apply grain (addition blend mode)
         vec3 grain = vec3(noise) * (1.0 - vec3(gray));
-        float grainIntensity = mix(INTENSITY, 0.05, u_night);
+        float grainIntensity = mix(INTENSITY_DAY, INTENSITY_NIGHT, u_night);
         gray = gray + grain.r * grainIntensity;
         gray = clamp(gray, 0.0, 1.0);
         
@@ -775,7 +778,9 @@
         float fogAmount = 1.0 - exp(-dist * 0.02);
         C = mix(C, fogColor, fogAmount);
         
-        fragColor = vec4(aces_tonemap(C * 2.0), 1.0);
+        // Darken waves in light mode
+        float waveBrightness = mix(1.4, 1.9, u_night);
+        fragColor = vec4(aces_tonemap(C * waveBrightness), 1.0);
       }
 
       void main() {
