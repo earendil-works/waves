@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ocean Waves</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; }
     html, body {
@@ -22,22 +25,24 @@
       border: 0;
       background: none;
       color: rgba(255, 255, 255, 0.95);
-      font: 26px/1 "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols", "Arial", sans-serif;
-      font-variant-emoji: text;
-      padding: 6px;
+      font: 16px/1 'EB Garamond', Georgia, serif;
+      padding: 6px 10px;
       z-index: 120;
       cursor: pointer;
       text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
-      transition: transform 0.2s ease, color 0.2s ease;
+      transition: color 0.2s ease;
     }
 
     #theme-toggle:hover {
       color: rgba(255, 255, 255, 1);
-      transform: scale(1.08);
     }
 
-    #theme-toggle:active {
-      transform: scale(0.98);
+    #theme-toggle .label {
+      opacity: 0.7;
+    }
+
+    #theme-toggle .value {
+      margin-left: 0.15em;
     }
     
     /* Logo styles */
@@ -69,7 +74,7 @@
 </head>
 <body>
   <div id="fps">FPS: --</div>
-  <button id="theme-toggle" type="button" aria-label="Toggle color theme"></button>
+  <button id="theme-toggle" type="button" aria-label="Toggle color theme"><span class="label">appearance:</span><span class="value"></span></button>
   
   <!-- Earendil Logo -->
   <div class="main-logo" id="logo">
@@ -106,10 +111,10 @@
 
     const THEME_STORAGE_KEY = 'earendil-theme-mode';
     const THEME_MODES = ['auto', 'night', 'day'];
-    const THEME_ICONS = {
-      auto: '◐',
-      night: '☾',
-      day: '☀'
+    const THEME_LABELS = {
+      auto: 'auto',
+      night: 'dark',
+      day: 'light'
     };
 
     // Quality settings for slower computers
@@ -186,8 +191,9 @@
     }
 
     function updateThemeToggle() {
-      themeToggle.textContent = THEME_ICONS[themeMode] || THEME_ICONS.auto;
-      themeToggle.setAttribute('aria-label', `Theme: ${themeMode}`);
+      const valueSpan = themeToggle.querySelector('.value');
+      valueSpan.textContent = THEME_LABELS[themeMode] || THEME_LABELS.auto;
+      themeToggle.setAttribute('aria-label', `Appearance: ${THEME_LABELS[themeMode]}`);
     }
 
     function persistThemeMode() {
@@ -199,9 +205,14 @@
     }
 
     themeToggle.addEventListener('click', () => {
-      const currentIndex = THEME_MODES.indexOf(themeMode);
-      const nextIndex = (currentIndex + 1) % THEME_MODES.length;
-      themeMode = THEME_MODES[nextIndex];
+      if (themeMode === 'auto') {
+        // When leaving auto, go to the opposite of what's currently showing
+        themeMode = prefersNight ? 'day' : 'night';
+      } else {
+        const currentIndex = THEME_MODES.indexOf(themeMode);
+        const nextIndex = (currentIndex + 1) % THEME_MODES.length;
+        themeMode = THEME_MODES[nextIndex];
+      }
       persistThemeMode();
       updateThemeToggle();
     });
