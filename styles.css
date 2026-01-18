@@ -1,0 +1,221 @@
+* { margin: 0; padding: 0; }
+html, body {
+  overflow: hidden;
+  cursor: url('cursor-light.svg') 12 12, auto;
+}
+* { cursor: inherit; }
+canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
+#fps { position: fixed; top: 10px; left: 10px; color: white; font: 16px monospace; background: rgba(0,0,0,0.5); padding: 5px 10px; z-index: 100; display: none; }
+#fps.visible { display: block; }
+
+#theme-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.95);
+  font: 14px/1 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  padding: 6px 10px;
+  z-index: 120;
+  cursor: pointer;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  transition: color 0.2s ease;
+}
+
+#theme-toggle:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+#theme-toggle .label {
+  opacity: 0.7;
+}
+
+#theme-toggle .value {
+  margin-left: 0.15em;
+}
+
+/* Logo styles */
+.logo-stack {
+  position: fixed;
+  top: 40px;
+  left: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  z-index: 10;
+}
+
+.main-logo {
+  width: 300px;
+  max-width: 65vw;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.logo-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  width: 100%;
+  opacity: 0;
+  padding-left: 24px;
+}
+
+.updates-link {
+  font: 14px/1.2 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.updates-link:hover {
+  color: rgba(255, 255, 255, 1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 800px) {
+  .logo-stack {
+    top: 30px;
+    right: 30px;
+    left: auto;
+    align-items: flex-end;
+  }
+
+  .logo-links {
+    align-items: flex-end;
+    text-align: right;
+    padding-left: 0;
+    padding-right: 10px;
+  }
+
+  .main-logo {
+    width: 210px;
+    max-width: calc(65vw * 0.7);
+  }
+}
+
+.updates-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 30px;
+  background: rgba(8, 9, 12, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  z-index: 200;
+  overflow-y: auto;
+}
+
+.updates-overlay:target {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.updates-letter {
+  position: relative;
+  width: min(780px, 92vw);
+  max-height: calc(100vh - 120px);
+  padding: 58px 70px 52px;
+  background: url('paper.png') center/256px 256px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(25, 20, 12, 0.2);
+  overflow: auto;
+  font: 15px/1.5 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  color: #1c1b1a;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  cursor: url('cursor-dark.svg') 12 12, auto;
+}
+
+.updates-overlay:target .updates-letter {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.updates-dismiss {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  text-decoration: none;
+  color: rgba(25, 24, 22, 0.7);
+  border: 1px solid rgba(25, 24, 22, 0.35);
+  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.6);
+  cursor: url('cursor-dark.svg') 12 12, pointer;
+}
+
+.letterhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.letterhead-date {
+  text-align: right;
+  font-weight: 500;
+}
+
+.letter-body p {
+  margin-bottom: 20px;
+}
+
+.letter-body a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 700;
+  cursor: url('cursor-dark.svg') 12 12, pointer;
+}
+
+.letter-body a:hover {
+  text-decoration: underline;
+}
+
+.letter-footer {
+  margin-top: 36px;
+  font-weight: 600;
+}
+
+.mono-bold {
+  font-weight: 700;
+}
+
+.mono-light {
+  font-weight: 300;
+}
+
+.mono-caps {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.mono-spaced {
+  letter-spacing: 0.3em;
+}
+
+@media (max-width: 600px) {
+  .updates-letter {
+    padding: 44px 40px 40px;
+  }
+}
