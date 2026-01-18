@@ -93,10 +93,14 @@ def build() -> None:
 
     if STATIC_DIR.exists():
         shutil.copytree(STATIC_DIR, BUILD_DIR / "static")
+        static_files = list(STATIC_DIR.rglob("*"))
+        static_count = sum(1 for f in static_files if f.is_file())
+        print(f"  Copied {static_count} static files")
 
     env = Environment(loader=load_from_path(str(TEMPLATES_DIR)))
 
-    for md_path in iter_markdown_files():
+    md_files = iter_markdown_files()
+    for md_path in md_files:
         raw = md_path.read_text()
         frontmatter, body = parse_frontmatter(raw)
         template_name = frontmatter.get("template", "index") + ".html"
@@ -111,12 +115,14 @@ def build() -> None:
             slug=slug_for_path(md_path),
         )
         output_path.write_text(rendered)
+        rel_path = md_path.relative_to(ROOT)
+        print(f"  {rel_path} -> {output_path.relative_to(BUILD_DIR)}")
 
 
 HOST = "127.0.0.1"
 PORT = 8000
 DEBOUNCE_DELAY = 0.3
-IGNORE_DIRS = {"_build", "_templates", "_static", ".git"}
+IGNORE_DIRS = {"_build", ".git"}
 
 # Global dictionary to track reload events by connection ID
 RELOAD_EVENTS: dict[int, threading.Event] = {}
@@ -282,7 +288,7 @@ class BackgroundBuilder:
                 try:
                     print("Rebuilding...")
                     build()
-                    print("Done.")
+                    print("Build complete.")
                     if self.on_build_complete:
                         self.on_build_complete()
                 except Exception:
@@ -301,7 +307,9 @@ class BackgroundBuilder:
         from watchdog.events import FileSystemEventHandler
 
         # Initial build
+        print("Building...")
         build()
+        print("Build complete.")
 
         # Set up file watcher
         handler = FileSystemEventHandler()
@@ -357,7 +365,9 @@ def main() -> None:
     if args.command == "serve":
         serve()
     else:
+        print("Building...")
         build()
+        print("Build complete.")
 
 
 if __name__ == "__main__":

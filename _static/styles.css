@@ -104,9 +104,9 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   position: fixed;
   inset: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 50px 30px;
+  padding: 30px;
   background: rgba(8, 9, 12, 0.35);
   opacity: 0;
   pointer-events: none;
@@ -130,12 +130,11 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
 .updates-letter {
   position: relative;
   width: min(780px, 92vw);
-  max-height: calc(100vh - 120px);
-  padding: 58px 70px 52px;
+  margin: auto 0;
+  padding: 78px 70px 72px;
   background: url('/static/paper.png') center/256px 256px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(25, 20, 12, 0.2);
-  overflow: auto;
   font: 15px/1.5 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
   color: #1c1b1a;
   letter-spacing: 0.02em;
