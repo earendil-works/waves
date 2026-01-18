@@ -107,7 +107,7 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   align-items: center;
   justify-content: center;
   padding: 50px 30px;
-  background: rgba(8, 9, 12, 0.55);
+  background: rgba(8, 9, 12, 0.35);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.35s ease;
@@ -138,6 +138,12 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   cursor: url('cursor-dark.svg') 12 12, auto;
 }
 
+.theme-night .updates-letter {
+  background: url('paper-dark.png') center/256px 256px;
+  color: rgba(240, 240, 240, 0.8);
+  cursor: url('cursor-light.svg') 12 12, auto;
+}
+
 .updates-overlay:target .updates-letter {
   opacity: 1;
   transform: translateY(0);
@@ -149,32 +155,28 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   right: 18px;
   text-decoration: none;
   color: rgba(25, 24, 22, 0.7);
-  border: 1px solid rgba(25, 24, 22, 0.35);
-  border-radius: 999px;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  line-height: 1;
-  background: rgba(255, 255, 255, 0.6);
+  font-size: inherit;
   cursor: url('cursor-dark.svg') 12 12, pointer;
 }
 
-.letterhead {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 32px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.theme-night .updates-dismiss {
+  color: rgba(240, 240, 240, 0.8);
+  cursor: url('cursor-light.svg') 12 12, pointer;
 }
 
-.letterhead-date {
-  text-align: right;
-  font-weight: 500;
+.updates-dismiss:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.email-meta {
+  margin-bottom: 24px;
+  opacity: 0.85;
+}
+
+.email-meta p {
+  margin-bottom: 0;
+  line-height: 1.5;
 }
 
 .letter-body p {
@@ -188,13 +190,48 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   cursor: url('cursor-dark.svg') 12 12, pointer;
 }
 
+.theme-night .letter-body a {
+  cursor: url('cursor-light.svg') 12 12, pointer;
+}
+
 .letter-body a:hover {
   text-decoration: underline;
 }
 
 .letter-footer {
-  margin-top: 36px;
-  font-weight: 600;
+  margin-top: 28px;
+  font-weight: 400;
+  color: rgba(25, 24, 22, 0.6);
+}
+
+.theme-night .letter-footer {
+  color: rgba(240, 240, 240, 0.6);
+}
+
+.signature-delimiter {
+  margin-bottom: 6px;
+}
+
+.signature-detail {
+  margin-bottom: 4px;
+}
+
+.signature-detail:last-child {
+  margin-bottom: 0;
+}
+
+.letter-footer a {
+  color: inherit;
+  text-decoration: none;
+  cursor: url('cursor-dark.svg') 12 12, pointer;
+}
+
+.theme-night .letter-footer a {
+  cursor: url('cursor-light.svg') 12 12, pointer;
+}
+
+.letter-footer a:hover {
+  text-decoration: underline;
 }
 
 .mono-bold {

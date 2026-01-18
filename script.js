@@ -77,6 +77,7 @@ let prefersNight = colorSchemeQuery ? colorSchemeQuery.matches : false;
 if (colorSchemeQuery) {
   const onSchemeChange = (event) => {
     prefersNight = event.matches;
+    applyThemePreference();
   };
   if (colorSchemeQuery.addEventListener) {
     colorSchemeQuery.addEventListener('change', onSchemeChange);
@@ -92,10 +93,16 @@ function getNightPreference() {
   return themeMode === 'night';
 }
 
+function applyThemePreference() {
+  const isNight = getNightPreference();
+  document.body.classList.toggle('theme-night', isNight);
+}
+
 function updateThemeToggle() {
   const valueSpan = themeToggle.querySelector('.value');
   valueSpan.textContent = THEME_LABELS[themeMode] || THEME_LABELS.auto;
   themeToggle.setAttribute('aria-label', `Appearance: ${THEME_LABELS[themeMode]}`);
+  applyThemePreference();
 }
 
 function persistThemeMode() {
@@ -107,19 +114,48 @@ function persistThemeMode() {
 }
 
 themeToggle.addEventListener('click', () => {
-  if (themeMode === 'auto') {
-    // When leaving auto, go to the opposite of what's currently showing
-    themeMode = prefersNight ? 'day' : 'night';
-  } else {
-    const currentIndex = THEME_MODES.indexOf(themeMode);
-    const nextIndex = (currentIndex + 1) % THEME_MODES.length;
-    themeMode = THEME_MODES[nextIndex];
-  }
+  const currentIndex = THEME_MODES.indexOf(themeMode);
+  const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % THEME_MODES.length;
+  themeMode = THEME_MODES[nextIndex];
   persistThemeMode();
   updateThemeToggle();
 });
 
 updateThemeToggle();
+
+const updatesOverlays = document.querySelectorAll('.updates-overlay');
+const updatesDismissLinks = document.querySelectorAll('.updates-dismiss');
+
+function updateOverlayState() {
+  const activeId = window.location.hash.slice(1);
+  updatesOverlays.forEach((overlay) => {
+    overlay.setAttribute('aria-hidden', overlay.id === activeId ? 'false' : 'true');
+  });
+}
+
+function closeUpdatesOverlay() {
+  window.location.hash = '';
+  updateOverlayState();
+}
+
+updatesOverlays.forEach((overlay) => {
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) {
+      event.preventDefault();
+      closeUpdatesOverlay();
+    }
+  });
+});
+
+updatesDismissLinks.forEach((link) => {
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    closeUpdatesOverlay();
+  });
+});
+
+window.addEventListener('hashchange', updateOverlayState);
+updateOverlayState();
 
 const THEME_FADE_DURATION = 900;
 let nightBlend = getNightPreference() ? 1.0 : 0.0;
