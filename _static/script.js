@@ -59,6 +59,68 @@
   });
 })();
 
+// Subscribe form handling
+(function() {
+  function initSubscribeForm() {
+    var form = document.querySelector('[data-subscribe-form]');
+    if (!form || form.dataset.initialized) return;
+    form.dataset.initialized = 'true';
+
+    var input = form.querySelector('.subscribe-input');
+    var messageEl = form.parentElement && form.parentElement.querySelector('.subscribe-message');
+
+    function isValidEmail(email) {
+      var atIndex = email.indexOf('@');
+      if (atIndex < 1) return false;
+      var domain = email.slice(atIndex + 1);
+      var lastDot = domain.lastIndexOf('.');
+      if (lastDot < 1) return false;
+      var tld = domain.slice(lastDot + 1);
+      return tld.length >= 2;
+    }
+
+    function showMessage(text) {
+      if (!messageEl) return;
+      messageEl.textContent = text;
+      messageEl.hidden = false;
+    }
+
+    function submit() {
+      if (!input) return;
+      var email = input.value.trim();
+      if (!isValidEmail(email)) {
+        showMessage('Please enter a valid email.');
+        return;
+      }
+
+      showMessage('Storing at the speed of light');
+
+      fetch('https://script.google.com/macros/s/AKfycbxtaYo7U3mpdwBnfl3O735PTKySaypH3JbYczz4tLJ7je-qBRgjQrZS0ZyB6bMRwt-4cQ/exec', {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ email: email })
+      })
+      .then(function() {
+        showMessage('Welcome aboard');
+        if (input) input.value = '';
+      })
+      .catch(function() {
+        showMessage('Something went wrong');
+      });
+    }
+
+    form.addEventListener('submit', function(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      submit();
+    });
+  }
+
+  initSubscribeForm();
+  document.body.addEventListener('htmx:afterSettle', initSubscribeForm);
+})();
+
 // WebGL ocean rendering (runs once)
 (function() {
 if (window.__earendilInitialized) return;

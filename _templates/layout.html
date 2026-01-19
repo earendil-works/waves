@@ -9,6 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/fonts/berkeley-mono.css">
   <link rel="stylesheet" href="/static/styles.css">
+  <link href="/updates/feed.atom" rel="alternate" title="Earendil Updates" type="application/atom+xml">
+  <link href="/updates/feed.rss" rel="alternate" title="Earendil Updates" type="application/rss+xml">
 </head>
 <body hx-boost="true" hx-ext="head-support" hx-select="div.page" hx-target="div.page" hx-swap="outerHTML"{% if slug != "/" %} class="skip-intro"{% endif %}>
   <div id="fps">FPS: --</div>
@@ -24,6 +26,7 @@
           {% for update in updates %}
           <a class="updates-link updates-child{% if slug == update.slug %} is-active{% endif %}" href="{{ update.slug }}">{{ update.name }}</a>
           {% endfor %}
+          <a class="updates-link updates-child{% if slug == "/updates/subscribe/" %} is-active{% endif %}" href="/updates/subscribe/">Subscribe</a>
         </div>
         {% else %}
         <a class="updates-link" href="/updates/">Updates</a>

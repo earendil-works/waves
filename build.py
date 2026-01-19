@@ -11,6 +11,7 @@ import shutil
 import threading
 import time
 import traceback
+from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Callable, Tuple
@@ -27,6 +28,10 @@ STATIC_DIR = ROOT / "_static"
 BUILD_DIR = ROOT / "_build"
 
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
+
+SITE_URL = "https://earendil.com/"
+UPDATES_FEED_LIMIT = 10
+UPDATE_IGNORED_FILES = {"_index.md", "subscribe.md"}
 
 
 def parse_frontmatter(raw: str) -> Tuple[dict[str, Any], str]:
@@ -98,18 +103,19 @@ def iter_markdown_files() -> list[Path]:
     return markdown_files
 
 
-def collect_updates() -> list[dict[str, Any]]:
-    """Collect all update files with their metadata."""
+def collect_update_entries() -> list[dict[str, Any]]:
+    """Collect update files with metadata and rendered content."""
     from email.utils import parsedate_to_datetime
+
     updates_dir = ROOT / "updates"
     updates = []
     if not updates_dir.exists():
         return updates
     for md_path in updates_dir.glob("*.md"):
-        if md_path.name == "_index.md":
+        if md_path.name in UPDATE_IGNORED_FILES:
             continue
         raw = md_path.read_text()
-        frontmatter, _ = parse_frontmatter(raw)
+        frontmatter, body = parse_frontmatter(raw)
         slug = slug_for_path(md_path)
         base_name = md_path.stem  # e.g., "memorandum"
         date_str = frontmatter.get("date", "")
@@ -118,9 +124,11 @@ def collect_updates() -> list[dict[str, Any]]:
         if date_str:
             try:
                 parsed_date = parsedate_to_datetime(date_str)
+                if parsed_date.tzinfo is None:
+                    parsed_date = parsed_date.replace(tzinfo=timezone.utc)
                 date_prefix = parsed_date.strftime("%Y%m%d-")
             except (ValueError, TypeError):
-                pass
+                parsed_date = None
         updates.append({
             "name": date_prefix + base_name,
             "slug": slug,
@@ -128,10 +136,119 @@ def collect_updates() -> list[dict[str, Any]]:
             "date": frontmatter.get("date", ""),
             "parsed_date": parsed_date,
             "subject": frontmatter.get("subject", ""),
+            "content": render_markdown(body),
         })
     # Sort by date, newest first
-    updates.sort(key=lambda u: u["parsed_date"] or "", reverse=True)
+    updates.sort(
+        key=lambda u: u["parsed_date"] or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
     return updates
+
+
+def _format_rss_date(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+
+def _generate_atom_feed(title: str, feed_url: str, subtitle: str, updates):
+    now = datetime.now(timezone.utc).isoformat()
+    entries = []
+    for update in updates:
+        if not update["parsed_date"]:
+            continue
+        entry_date = update["parsed_date"].astimezone(timezone.utc).isoformat()
+        update_url = SITE_URL.rstrip("/") + update["slug"]
+        content = update["content"]
+        entry_xml = f"""  <entry>
+    <id>{update_url}</id>
+    <title>{update['title']}</title>
+    <link href=\"{update_url}\" />
+    <published>{entry_date}</published>
+    <updated>{entry_date}</updated>
+    <author>
+      <name>Earendil</name>
+    </author>
+    <content type=\"html\"><![CDATA[{content}]]></content>
+  </entry>"""
+        entries.append(entry_xml)
+
+    feed_xml = f"""<?xml version=\"1.0\" encoding=\"utf-8\"?>
+<feed xmlns=\"http://www.w3.org/2005/Atom\">
+  <id>{feed_url}</id>
+  <title>{title}</title>
+  <link href=\"{SITE_URL}\" />
+  <link href=\"{feed_url}\" rel=\"self\" />
+  <description>{subtitle}</description>
+  <language>en</language>
+  <updated>{now}</updated>
+  <author>
+    <name>Earendil</name>
+  </author>
+{chr(10).join(entries)}
+</feed>"""
+    return feed_xml
+
+
+def _generate_rss_feed(title: str, feed_url: str, subtitle: str, updates):
+    now = datetime.now(timezone.utc)
+    rss_date_format = _format_rss_date(now)
+
+    items = []
+    for update in updates:
+        if not update["parsed_date"]:
+            continue
+        update_url = SITE_URL.rstrip("/") + update["slug"]
+        pub_date = _format_rss_date(update["parsed_date"])
+        content = update["content"]
+        item_xml = f"""    <item>
+      <title>{update['title']}</title>
+      <link>{update_url}</link>
+      <guid isPermaLink=\"true\">{update_url}</guid>
+      <pubDate>{pub_date}</pubDate>
+      <description><![CDATA[{content}]]></description>
+    </item>"""
+        items.append(item_xml)
+
+    rss_xml = f"""<?xml version=\"1.0\" encoding=\"utf-8\"?>
+<rss version=\"2.0\">
+  <channel>
+    <title>{title}</title>
+    <link>{SITE_URL}</link>
+    <description>{subtitle}</description>
+    <language>en</language>
+    <lastBuildDate>{rss_date_format}</lastBuildDate>
+{chr(10).join(items)}
+  </channel>
+</rss>"""
+    return rss_xml
+
+
+def build_update_feeds(updates, build_dir: Path) -> None:
+    if not updates:
+        return
+    recent_updates = updates[:UPDATES_FEED_LIMIT]
+    updates_dir = build_dir / "updates"
+    updates_dir.mkdir(parents=True, exist_ok=True)
+
+    atom_feed_url = SITE_URL.rstrip("/") + "/updates/feed.atom"
+    rss_feed_url = SITE_URL.rstrip("/") + "/updates/feed.rss"
+
+    atom_xml = _generate_atom_feed(
+        title="Earendil Updates",
+        feed_url=atom_feed_url,
+        subtitle="Updates from Earendil",
+        updates=recent_updates,
+    )
+    (updates_dir / "feed.atom").write_text(atom_xml, encoding="utf-8")
+
+    rss_xml = _generate_rss_feed(
+        title="Earendil Updates",
+        feed_url=rss_feed_url,
+        subtitle="Updates from Earendil",
+        updates=recent_updates,
+    )
+    (updates_dir / "feed.rss").write_text(rss_xml, encoding="utf-8")
+
 
 
 def build_to(build_dir: Path) -> None:
@@ -147,8 +264,19 @@ def build_to(build_dir: Path) -> None:
 
     env = Environment(loader=load_from_path(str(TEMPLATES_DIR)))
 
-    # Collect updates for navigation
-    updates = collect_updates()
+    # Collect updates for navigation + feeds
+    update_entries = collect_update_entries()
+    updates = [
+        {
+            "name": update["name"],
+            "slug": update["slug"],
+            "title": update["title"],
+            "date": update["date"],
+            "parsed_date": update["parsed_date"],
+            "subject": update["subject"],
+        }
+        for update in update_entries
+    ]
 
     md_files = iter_markdown_files()
     for md_path in md_files:
@@ -177,6 +305,8 @@ def build_to(build_dir: Path) -> None:
         output_path.write_text(rendered)
         rel_path = md_path.relative_to(ROOT)
         print(f"  {rel_path} -> {output_path.relative_to(build_dir)}", flush=True)
+
+    build_update_feeds(update_entries, build_dir)
 
 
 def build() -> None:
