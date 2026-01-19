@@ -1244,11 +1244,14 @@ function screenToWaterHit(clientX, clientY, time) {
   rayX /= len; rayY /= len; rayZ /= len;
   
   // Apply camera tilt (-0.05 + cameraTiltOffset radians around X axis)
+  // Rotation matrix formula (matches GLSL shader):
+  // newY = cos(a)*y + sin(a)*z
+  // newZ = -sin(a)*y + cos(a)*z
   const tiltAngle = -0.05 + cameraTiltOffset;
   const cosTilt = Math.cos(tiltAngle);
   const sinTilt = Math.sin(tiltAngle);
-  const newY = rayY * cosTilt - rayZ * sinTilt;
-  const newZ = rayY * sinTilt + rayZ * cosTilt;
+  const newY = rayY * cosTilt + rayZ * sinTilt;
+  const newZ = -rayY * sinTilt + rayZ * cosTilt;
   rayY = newY;
   rayZ = newZ;
   
