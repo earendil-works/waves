@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+
+{% block body %}
+  <div class="updates-overlay" aria-hidden="true">
+    <div class="updates-letter error-letter" role="dialog" aria-label="{{ page.aria_label }}">
+      <div class="letter-body">
+        {{ content }}
+      </div>
+    </div>
+  </div>
+{% endblock %}

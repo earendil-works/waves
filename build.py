@@ -73,7 +73,10 @@ def slug_for_path(path: Path) -> str:
     return "/" + "/".join(without_ext.parts) + "/"
 
 
-def output_path_for(path: Path, build_dir: Path) -> Path:
+def output_path_for(path: Path, build_dir: Path, frontmatter: dict[str, Any] | None = None) -> Path:
+    # Allow explicit output filename via frontmatter
+    if frontmatter and "output" in frontmatter:
+        return build_dir / frontmatter["output"]
     rel = path.relative_to(ROOT)
     if rel.name == "_index.md":
         # _index.md represents the directory it's in
@@ -284,7 +287,7 @@ def build_to(build_dir: Path) -> None:
         frontmatter, body = parse_frontmatter(raw)
         template_name = frontmatter.get("template", "index") + ".html"
         html_body = render_markdown(body)
-        output_path = output_path_for(md_path, build_dir)
+        output_path = output_path_for(md_path, build_dir, frontmatter)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         slug = slug_for_path(md_path)
         # Compute dismiss URL (parent directory)
