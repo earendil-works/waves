@@ -780,6 +780,8 @@ function buildFragmentShader(quality) {
     if(ray.y >= 0.0) {
       float skyLight = texture2D(u_light, skyUV(ray)).r;
       vec3 C;
+      float horizonFactor = smoothstep(0.02, 0.25, ray.y);
+      float nightBlend = pow(u_night, mix(0.35, 1.0, horizonFactor));
       if (u_night <= NIGHT_EPS) {
         C = getDaySky(ray, skyLight);
       } else if (u_night >= 1.0 - NIGHT_EPS) {
@@ -787,7 +789,7 @@ function buildFragmentShader(quality) {
       } else {
         vec3 daySky = getDaySky(ray, skyLight);
         vec3 nightSky = getNightSky(ray, skyLight);
-        C = mix(daySky, nightSky, u_night);
+        C = mix(daySky, nightSky, nightBlend);
       }
       fragColor = vec4(aces_tonemap(C * 2.0), 1.0);   
       return;
@@ -816,6 +818,8 @@ function buildFragmentShader(quality) {
     float reflectedLight = texture2D(u_light, skyUV(R)).r;
     float reflectedLogo = sampleLogo(skyUV(R));
     vec3 reflection;
+    float reflectionHorizon = smoothstep(0.02, 0.25, R.y);
+    float nightReflectionBlend = pow(u_night, mix(0.35, 1.0, reflectionHorizon));
     if (u_night <= NIGHT_EPS) {
       reflection = getDaySky(R, reflectedLight);
     } else if (u_night >= 1.0 - NIGHT_EPS) {
@@ -823,7 +827,7 @@ function buildFragmentShader(quality) {
     } else {
       vec3 dayReflection = getDaySky(R, reflectedLight);
       vec3 nightReflection = getNightSky(R, reflectedLight);
-      reflection = mix(dayReflection, nightReflection, u_night);
+      reflection = mix(dayReflection, nightReflection, nightReflectionBlend);
     }
     reflection += vec3(1.0) * (reflectedLogo * LOGO_INTENSITY);
     vec3 scatteringBase = mix(vec3(0.08, 0.08, 0.09), vec3(0.02, 0.02, 0.03), u_night);
@@ -1361,15 +1365,19 @@ function isUpdateOverlayOpen() {
   return !!document.querySelector('.updates-overlay.is-open');
 }
 
-canvas.addEventListener('pointerdown', (event) => {
-  if (isUpdateOverlayOpen()) {
+function isInteractiveUiTarget(event) {
+  return !!event.target.closest('.logo-links a, #theme-toggle, .updates-overlay, .updates-dismiss');
+}
+
+window.addEventListener('pointerdown', (event) => {
+  if (isUpdateOverlayOpen() || isInteractiveUiTarget(event)) {
     return;
   }
   isDrawing = true;
   queueLightPoints(event);
 });
 
-canvas.addEventListener('pointermove', (event) => {
+window.addEventListener('pointermove', (event) => {
   if (isDrawing) {
     queueLightPoints(event);
   }

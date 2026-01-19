@@ -56,6 +56,19 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   align-items: flex-start;
   gap: 12px;
   z-index: 10;
+  pointer-events: none;
+}
+
+.logo-stack .logo-link {
+  pointer-events: auto;
+}
+
+.logo-stack .logo-links {
+  pointer-events: none;
+}
+
+.logo-stack .logo-links a {
+  pointer-events: auto;
 }
 
 .logo-stack .logo-link {
