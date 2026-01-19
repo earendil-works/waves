@@ -359,7 +359,7 @@ const ditherFragmentShaderSource = `
   varying vec2 v_texCoord;
 
   #define INTENSITY_DAY 0.4
-  #define INTENSITY_NIGHT 0.12
+  #define INTENSITY_NIGHT 0.065
   #define SPEED 1.5
   #define MEAN 0.0
   #define VARIANCE_DAY 0.75
