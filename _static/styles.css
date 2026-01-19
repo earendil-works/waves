@@ -316,17 +316,18 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
 .subscribe-input-wrapper {
   position: relative;
   display: inline-block;
-  min-width: 280px;
+  width: 28ch;
   max-width: 100%;
   line-height: 1.6;
+  letter-spacing: 0;
 }
 
 .subscribe-underline {
   display: block;
   color: rgba(25, 24, 22, 0.5);
-  letter-spacing: 0.06em;
   pointer-events: none;
   user-select: none;
+  letter-spacing: 0;
 }
 
 .subscribe-input {
@@ -338,9 +339,14 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   outline: none;
   font: inherit;
   color: inherit;
-  letter-spacing: 0.02em;
   cursor: text;
   caret-color: currentColor;
+  letter-spacing: 0;
+  padding: 0;
+  margin: 0;
+  line-height: inherit;
+  box-sizing: content-box;
+  appearance: none;
 }
 
 .subscribe-button {
@@ -360,6 +366,12 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
 .subscribe-message {
   margin: 16px 0 0;
   opacity: 0.85;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+}
+
+.subscribe-form.is-hidden {
+  display: none;
 }
 
 .theme-night .subscribe-underline {

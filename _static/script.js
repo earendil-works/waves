@@ -67,6 +67,7 @@
     form.dataset.initialized = 'true';
 
     var input = form.querySelector('.subscribe-input');
+    var button = form.querySelector('.subscribe-button');
     var messageEl = form.parentElement && form.parentElement.querySelector('.subscribe-message');
 
     function isValidEmail(email) {
@@ -85,6 +86,38 @@
       messageEl.hidden = false;
     }
 
+    var submittingInterval = null;
+
+    function startSubmittingMessage() {
+      var dots = 0;
+      showMessage('Subscribing');
+      submittingInterval = window.setInterval(function() {
+        dots = (dots + 1) % 4;
+        var suffix = dots === 0 ? '' : dots === 1 ? '.' : dots === 2 ? '..' : '...';
+        showMessage('Subscribing' + suffix);
+      }, 450);
+    }
+
+    function stopSubmittingMessage() {
+      if (submittingInterval) {
+        window.clearInterval(submittingInterval);
+        submittingInterval = null;
+      }
+    }
+
+    function setSubmitting(isSubmitting) {
+      if (!form) return;
+      form.classList.toggle('is-hidden', isSubmitting);
+      form.hidden = isSubmitting;
+      if (input) input.disabled = isSubmitting;
+      if (button) button.disabled = isSubmitting;
+    }
+
+    function setSubmitted() {
+      if (form) form.hidden = true;
+      showMessage('Welcome aboard. You are subscribed!');
+    }
+
     function submit() {
       if (!input) return;
       var email = input.value.trim();
@@ -93,7 +126,8 @@
         return;
       }
 
-      showMessage('Storing at the speed of light');
+      setSubmitting(true);
+      startSubmittingMessage();
 
       fetch('https://script.google.com/macros/s/AKfycbxtaYo7U3mpdwBnfl3O735PTKySaypH3JbYczz4tLJ7je-qBRgjQrZS0ZyB6bMRwt-4cQ/exec', {
         method: 'POST',
@@ -102,10 +136,13 @@
         body: JSON.stringify({ email: email })
       })
       .then(function() {
-        showMessage('Welcome aboard');
+        stopSubmittingMessage();
         if (input) input.value = '';
+        setSubmitted();
       })
       .catch(function() {
+        stopSubmittingMessage();
+        setSubmitting(false);
         showMessage('Something went wrong');
       });
     }
