@@ -638,27 +638,6 @@ function buildFragmentShader(quality) {
         color += starColor * s * horizonFade;
       }
 
-      vec3 moonDir = normalize(vec3(0.4, 0.39, 0.9));
-      vec2 moonScreenUv = dirToScreenUV(moonDir);
-      if (moonScreenUv.x >= 0.0 && moonScreenUv.x <= 1.0 && moonScreenUv.y >= 0.0 && moonScreenUv.y <= 1.0) {
-        vec2 moonDeltaPx = (screenUv - moonScreenUv) * iResolution.xy;
-        float moonRadiusPx = min(iResolution.x, iResolution.y) * 0.0294;
-        float dist = length(moonDeltaPx);
-        float moonEdge = smoothstep(moonRadiusPx, moonRadiusPx * 0.8, dist);
-        if (moonEdge > 0.0) {
-          vec2 moonUv = moonDeltaPx / moonRadiusPx;
-          float limb = smoothstep(1.0, 0.45, length(moonUv));
-          float crater = fbm(moonUv * 7.0) + 0.5 * fbm(moonUv * 16.0);
-          crater = smoothstep(0.3, 0.85, crater);
-          vec3 moonNormal = normalize(vec3(moonUv, sqrt(max(0.0, 1.0 - dot(moonUv, moonUv)))));
-          vec3 moonLightDir = normalize(vec3(0.2, 0.25, 0.9));
-          float moonLight = clamp(dot(moonNormal, moonLightDir), 0.0, 1.0);
-          vec3 moonColor = vec3(1.2, 1.15, 1.05) * (0.7 + 0.5 * moonLight) * 0.6;
-          moonColor *= mix(1.0, 0.6, crater);
-          moonColor *= limb;
-          color += moonColor * moonEdge;
-        }
-      }
     }
 
     color += vec3(1.0) * skyLight * 1.4 * u_ambientIntensity;
