@@ -47,13 +47,23 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
 /* Logo styles */
 .logo-stack {
   position: fixed;
-  top: 40px;
-  left: 40px;
+  top: 30px;
+  left: 36px;
+  right: 36px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
   z-index: 10;
+}
+
+.logo-stack .logo-link {
+  order: 2;
+}
+
+.logo-stack .logo-links {
+  order: 1;
 }
 
 .logo-link {
@@ -79,7 +89,7 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   align-items: flex-start;
   width: 100%;
   opacity: 0;
-  padding-left: 24px;
+  margin-top: 20px;
 }
 
 .loaded .logo-links,
@@ -130,28 +140,43 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
 
 @media (max-width: 800px) {
   .logo-stack {
-    top: 30px;
-    right: 30px;
-    left: auto;
-    align-items: flex-end;
+    top: 26px;
+    left: 24px;
+    right: 24px;
   }
 
   .logo-links {
-    align-items: flex-end;
-    text-align: right;
-    padding-left: 0;
-    padding-right: 10px;
-  }
-
-  .updates-children {
-    align-items: flex-end;
-    padding-left: 0;
-    padding-right: 16px;
+    margin-top: -4px;
   }
 
   .main-logo {
     width: 210px;
     max-width: calc(65vw * 0.7);
+  }
+}
+
+@media (max-width: 520px) {
+  .logo-stack {
+    top: 22px;
+    left: 20px;
+    right: auto;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .logo-stack .logo-link,
+  .logo-stack .logo-links {
+    order: 0;
+  }
+
+  .logo-links {
+    width: auto;
+    margin-top: 10px;
+    padding-left: 20px;
+  }
+
+  .updates-children {
+    padding-left: 32px;
   }
 }
 
