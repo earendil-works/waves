@@ -1244,18 +1244,22 @@ function queueLightPoints(event) {
   const skyUV = screenToSkyUV(event);
   if (!skyUV) return;
 
+  // Use actual canvas scale (devicePixelRatio * quality scale) for proper sizing
+  const rect = canvas.getBoundingClientRect();
+  const canvasScale = canvas.width / rect.width * 2;
+
   const sprinkleCount = 10;
   for (let i = 0; i < sprinkleCount; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const radius = (Math.random() * 10 + 6) * window.devicePixelRatio;
+    const radius = (Math.random() * 10 + 6) * canvasScale;
     const offsetX = Math.cos(angle) * radius;
     const offsetY = Math.sin(angle) * radius;
 
     const jitterU = skyUV.du_dx * offsetX + skyUV.du_dy * offsetY;
     const jitterV = skyUV.dv_dx * offsetX + skyUV.dv_dy * offsetY;
 
-    // Radius in screen pixels (independent of resolution)
-    const screenRadius = (Math.random() * 6 + 4) * window.devicePixelRatio;
+    // Radius in canvas pixels (matches Jacobian units)
+    const screenRadius = (Math.random() * 6 + 4) * canvasScale;
     const px = (skyUV.u + jitterU + 1) % 1;
     const py = Math.min(1, Math.max(0, skyUV.v + jitterV));
     // 7 floats per point: x, y, du_dx, dv_dx, du_dy, dv_dy, screenRadius
