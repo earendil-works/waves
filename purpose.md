@@ -1,11 +1,7 @@
 ---
 title: Purpose
-template: updates
+template: page
 aria_label: Earendil purpose
-from: Earendil Inc. Founders <founders@earendil.com>
-to: You
-date: Sun, 18 Jan 2026 18:17:19 +0100
-subject: Our purpose and charter
 ---
 
 <a href="/" class="mono-bold">Earendil</a> is a public benefit corporation founded by <a href="https://mitsuhiko.at/" target="_blank" rel="noopener noreferrer">Armin Ronacher</a> and <a href="https://c01.in/" target="_blank" rel="noopener noreferrer">Colin Daymond Hanna</a>.

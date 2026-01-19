@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/static/fonts/berkeley-mono.css">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body hx-boost="true" hx-ext="head-support" hx-select="div.page" hx-target="div.page" hx-swap="outerHTML">
+<body hx-boost="true" hx-ext="head-support" hx-select="div.page" hx-target="div.page" hx-swap="outerHTML"{% if slug != "/" %} class="skip-intro"{% endif %}>
   <div id="fps">FPS: --</div>
   <button id="theme-toggle" type="button" aria-label="Toggle color theme"><span class="value"></span></button>
 
@@ -53,6 +53,11 @@
     htmx.on('htmx:sendError', htmxFallbackToNative);
     htmx.on('htmx:swapError', htmxFallbackToNative);
     htmx.on('htmx:responseError', htmxFallbackToNative);
+
+    // Ensure logo/sidebar are visible immediately on HTMX navigation
+    htmx.on('htmx:beforeSwap', function() {
+      document.body.classList.add('skip-intro');
+    });
   </script>
   <script src="/static/script.js"></script>
 </body>

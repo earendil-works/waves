@@ -1423,20 +1423,26 @@ function render(time) {
 
 requestAnimationFrame(render);
 
-// Logo fade-in animation
-setTimeout(() => {
-  const fadeDuration = LOGO_FADE_DURATION / 1000;
-  logo.style.transition = `opacity ${fadeDuration}s ease`;
-  logo.style.opacity = `${LOGO_FADE_TARGET}`;
-  const logoLinks = document.querySelector('.logo-links');
-  if (logoLinks) {
-    logoLinks.style.transition = `opacity ${fadeDuration}s ease`;
-    logoLinks.style.opacity = `${LOGO_FADE_TARGET}`;
-  }
-  // Mark body as loaded so HTMX swaps don't restart animation
+// Logo fade-in animation (skip if not on home page)
+if (document.body.classList.contains('skip-intro')) {
+  // Non-home page: show immediately
+  document.body.classList.add('loaded');
+} else {
+  // Home page: fade in
   setTimeout(() => {
-    document.body.classList.add('loaded');
-  }, fadeDuration * 1000);
-}, LOGO_FADE_DELAY);
+    const fadeDuration = LOGO_FADE_DURATION / 1000;
+    logo.style.transition = `opacity ${fadeDuration}s ease`;
+    logo.style.opacity = `${LOGO_FADE_TARGET}`;
+    const logoLinks = document.querySelector('.logo-links');
+    if (logoLinks) {
+      logoLinks.style.transition = `opacity ${fadeDuration}s ease`;
+      logoLinks.style.opacity = `${LOGO_FADE_TARGET}`;
+    }
+    // Mark body as loaded so HTMX swaps don't restart animation
+    setTimeout(() => {
+      document.body.classList.add('loaded');
+    }, fadeDuration * 1000);
+  }, LOGO_FADE_DELAY);
+}
 
 })();

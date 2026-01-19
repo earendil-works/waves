@@ -96,24 +96,37 @@ def iter_markdown_files() -> list[Path]:
 
 def collect_updates() -> list[dict[str, Any]]:
     """Collect all update files with their metadata."""
+    from email.utils import parsedate_to_datetime
     updates_dir = ROOT / "updates"
     updates = []
     if not updates_dir.exists():
         return updates
-    for md_path in sorted(updates_dir.glob("*.md"), reverse=True):
+    for md_path in updates_dir.glob("*.md"):
         if md_path.name == "_index.md":
             continue
         raw = md_path.read_text()
         frontmatter, _ = parse_frontmatter(raw)
         slug = slug_for_path(md_path)
-        name = md_path.stem  # e.g., "memorandum"
+        base_name = md_path.stem  # e.g., "memorandum"
+        date_str = frontmatter.get("date", "")
+        date_prefix = ""
+        parsed_date = None
+        if date_str:
+            try:
+                parsed_date = parsedate_to_datetime(date_str)
+                date_prefix = parsed_date.strftime("%Y%m%d-")
+            except (ValueError, TypeError):
+                pass
         updates.append({
-            "name": name,
+            "name": date_prefix + base_name,
             "slug": slug,
-            "title": frontmatter.get("title", name),
+            "title": frontmatter.get("title", base_name),
             "date": frontmatter.get("date", ""),
+            "parsed_date": parsed_date,
             "subject": frontmatter.get("subject", ""),
         })
+    # Sort by date, newest first
+    updates.sort(key=lambda u: u["parsed_date"] or "", reverse=True)
     return updates
 
 

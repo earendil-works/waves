@@ -67,7 +67,8 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   opacity: 0;
 }
 
-.loaded .main-logo {
+.loaded .main-logo,
+.skip-intro .main-logo {
   opacity: 0.85;
 }
 
@@ -81,7 +82,8 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   padding-left: 24px;
 }
 
-.loaded .logo-links {
+.loaded .logo-links,
+.skip-intro .logo-links {
   opacity: 0.85;
 }
 
