@@ -95,7 +95,7 @@ def build() -> None:
         shutil.copytree(STATIC_DIR, BUILD_DIR / "static")
         static_files = list(STATIC_DIR.rglob("*"))
         static_count = sum(1 for f in static_files if f.is_file())
-        print(f"  Copied {static_count} static files")
+        print(f"  Copied {static_count} static files", flush=True)
 
     env = Environment(loader=load_from_path(str(TEMPLATES_DIR)))
 
@@ -116,7 +116,7 @@ def build() -> None:
         )
         output_path.write_text(rendered)
         rel_path = md_path.relative_to(ROOT)
-        print(f"  {rel_path} -> {output_path.relative_to(BUILD_DIR)}")
+        print(f"  {rel_path} -> {output_path.relative_to(BUILD_DIR)}", flush=True)
 
 
 HOST = "127.0.0.1"
@@ -286,9 +286,9 @@ class BackgroundBuilder:
 
             if should_build:
                 try:
-                    print("Rebuilding...")
+                    print("Rebuilding...", flush=True)
                     build()
-                    print("Build complete.")
+                    print("Done.", flush=True)
                     if self.on_build_complete:
                         self.on_build_complete()
                 except Exception:
@@ -307,9 +307,9 @@ class BackgroundBuilder:
         from watchdog.events import FileSystemEventHandler
 
         # Initial build
-        print("Building...")
+        print("Building...", flush=True)
         build()
-        print("Build complete.")
+        print("Done.", flush=True)
 
         # Set up file watcher
         handler = FileSystemEventHandler()
@@ -365,9 +365,9 @@ def main() -> None:
     if args.command == "serve":
         serve()
     else:
-        print("Building...")
+        print("Building...", flush=True)
         build()
-        print("Build complete.")
+        print("Done.", flush=True)
 
 
 if __name__ == "__main__":

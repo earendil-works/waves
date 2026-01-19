@@ -82,6 +82,7 @@ const QUALITY_LEVELS = ['low', 'medium', 'high'];
 const QUALITY_SETTINGS = {
   low: {
     scale: 0.25,
+    lowDpiScale: 0.425,  // 1.7x for low DPI screens
     raymarchSteps: 20,
     waveIterRaymarch: 4,
     waveIterNormal: 16,
@@ -89,6 +90,7 @@ const QUALITY_SETTINGS = {
   },
   medium: {
     scale: 0.35,
+    lowDpiScale: 0.595,  // 1.7x for low DPI screens
     raymarchSteps: 24,
     waveIterRaymarch: 6,
     waveIterNormal: 16,
@@ -96,12 +98,17 @@ const QUALITY_SETTINGS = {
   },
   high: {
     scale: 0.4,
+    lowDpiScale: 0.68,   // 1.7x for low DPI screens
     raymarchSteps: 32,
     waveIterRaymarch: 8,
     waveIterNormal: 16,
     fbmOctaves: 4
   }
 };
+
+// Low DPI threshold and noise scale multiplier
+const LOW_DPI_THRESHOLD = 1.5;
+const LOW_DPI_NOISE_SCALE = 1.7;
 
 let currentQuality = 'high';
 
@@ -241,6 +248,7 @@ const ditherFragmentShaderSource = `
   uniform vec2 u_resolution;
   uniform float u_time;
   uniform float u_night;
+  uniform float u_noiseScale;
   varying vec2 v_texCoord;
 
   #define INTENSITY_DAY 0.4
@@ -260,9 +268,9 @@ const ditherFragmentShaderSource = `
     // Convert to grayscale
     float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
     
-    // Film grain noise
+    // Film grain noise (scaled for finer grain on low DPI)
     float t = u_time * SPEED;
-    vec2 uv = gl_FragCoord.xy / u_resolution;
+    vec2 uv = gl_FragCoord.xy * u_noiseScale / u_resolution;
     float seed = dot(uv, vec2(12.9898, 78.233));
     float noise = fract(sin(seed) * 43758.5453 + t);
     float variance = mix(VARIANCE_DAY, VARIANCE_NIGHT, u_night);
@@ -894,6 +902,7 @@ const ditherResolutionLocation = gl.getUniformLocation(ditherProgram, 'u_resolut
 const ditherImageLocation = gl.getUniformLocation(ditherProgram, 'u_image');
 const ditherTimeLocation = gl.getUniformLocation(ditherProgram, 'u_time');
 const ditherNightLocation = gl.getUniformLocation(ditherProgram, 'u_night');
+const ditherNoiseScaleLocation = gl.getUniformLocation(ditherProgram, 'u_noiseScale');
 
 const lightDecayImageLocation = gl.getUniformLocation(lightDecayProgram, 'u_light');
 const lightDecayFactorLocation = gl.getUniformLocation(lightDecayProgram, 'u_decay');
@@ -1025,7 +1034,10 @@ function getViewportSize() {
 function resize() {
   const { width, height } = getViewportSize();
   // Render at reduced resolution based on quality setting
-  const scale = QUALITY_SETTINGS[currentQuality].scale;
+  // Use higher scale on low DPI screens for sharper rendering
+  const isLowDpi = window.devicePixelRatio < LOW_DPI_THRESHOLD;
+  const settings = QUALITY_SETTINGS[currentQuality];
+  const scale = isLowDpi ? settings.lowDpiScale : settings.scale;
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
   canvas.width = width * window.devicePixelRatio * scale;
@@ -1410,6 +1422,9 @@ function render(time) {
   gl.uniform2f(ditherResolutionLocation, canvas.width, canvas.height);
   gl.uniform1f(ditherTimeLocation, time * 0.001);
   gl.uniform1f(ditherNightLocation, nightValue);
+  // Finer noise on low DPI screens
+  const noiseScale = window.devicePixelRatio < LOW_DPI_THRESHOLD ? LOW_DPI_NOISE_SCALE : 1.0;
+  gl.uniform1f(ditherNoiseScaleLocation, noiseScale);
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
