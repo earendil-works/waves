@@ -18,13 +18,22 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   font: 14px/1 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
   padding: 6px 10px;
   z-index: 120;
-  cursor: pointer;
+  cursor: url('/static/cursor-light.svg') 12 12, pointer;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   transition: color 0.2s ease;
 }
 
 #theme-toggle:hover {
   color: rgba(255, 255, 255, 1);
+  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+}
+
+.theme-night #theme-toggle {
+  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+}
+
+.theme-night #theme-toggle:hover {
+  cursor: url('/static/cursor-light.svg') 12 12, pointer;
 }
 
 #theme-toggle .label {
@@ -71,12 +80,22 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
   transition: color 0.2s ease, opacity 0.2s ease;
+  cursor: url('/static/cursor-light.svg') 12 12, pointer;
 }
 
 .updates-link:hover {
   color: rgba(255, 255, 255, 1);
   text-decoration: underline;
   text-underline-offset: 3px;
+  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+}
+
+.theme-night .updates-link {
+  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+}
+
+.theme-night .updates-link:hover {
+  cursor: url('/static/cursor-light.svg') 12 12, pointer;
 }
 
 @media (max-width: 800px) {
