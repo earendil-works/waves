@@ -68,16 +68,16 @@ def slug_for_path(path: Path) -> str:
     return "/" + "/".join(without_ext.parts) + "/"
 
 
-def output_path_for(path: Path) -> Path:
+def output_path_for(path: Path, build_dir: Path) -> Path:
     rel = path.relative_to(ROOT)
     if rel.name == "_index.md":
         # _index.md represents the directory it's in
         parent_parts = rel.parent.parts
         if not parent_parts:
-            return BUILD_DIR / "index.html"
-        return BUILD_DIR / Path(*parent_parts) / "index.html"
+            return build_dir / "index.html"
+        return build_dir / Path(*parent_parts) / "index.html"
     without_ext = rel.with_suffix("")
-    return BUILD_DIR / without_ext / "index.html"
+    return build_dir / without_ext / "index.html"
 
 
 def iter_markdown_files() -> list[Path]:
@@ -130,13 +130,13 @@ def collect_updates() -> list[dict[str, Any]]:
     return updates
 
 
-def build() -> None:
-    if BUILD_DIR.exists():
-        shutil.rmtree(BUILD_DIR)
-    BUILD_DIR.mkdir(parents=True, exist_ok=True)
+def build_to(build_dir: Path) -> None:
+    if build_dir.exists():
+        shutil.rmtree(build_dir)
+    build_dir.mkdir(parents=True, exist_ok=True)
 
     if STATIC_DIR.exists():
-        shutil.copytree(STATIC_DIR, BUILD_DIR / "static")
+        shutil.copytree(STATIC_DIR, build_dir / "static")
         static_files = list(STATIC_DIR.rglob("*"))
         static_count = sum(1 for f in static_files if f.is_file())
         print(f"  Copied {static_count} static files", flush=True)
@@ -152,7 +152,7 @@ def build() -> None:
         frontmatter, body = parse_frontmatter(raw)
         template_name = frontmatter.get("template", "index") + ".html"
         html_body = render_markdown(body)
-        output_path = output_path_for(md_path)
+        output_path = output_path_for(md_path, build_dir)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         slug = slug_for_path(md_path)
         # Compute dismiss URL (parent directory)
@@ -172,7 +172,15 @@ def build() -> None:
         )
         output_path.write_text(rendered)
         rel_path = md_path.relative_to(ROOT)
-        print(f"  {rel_path} -> {output_path.relative_to(BUILD_DIR)}", flush=True)
+        print(f"  {rel_path} -> {output_path.relative_to(build_dir)}", flush=True)
+
+
+def build() -> None:
+    temp_dir = BUILD_DIR.with_name(f"{BUILD_DIR.name}_tmp")
+    build_to(temp_dir)
+    if BUILD_DIR.exists():
+        shutil.rmtree(BUILD_DIR)
+    temp_dir.replace(BUILD_DIR)
 
 
 HOST = "127.0.0.1"
