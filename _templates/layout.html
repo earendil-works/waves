@@ -10,21 +10,32 @@
   <link rel="stylesheet" href="/static/fonts/berkeley-mono.css">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body hx-boost="true" hx-ext="head-support" hx-select="div.body" hx-target="div.body" hx-swap="outerHTML">
+<body hx-boost="true" hx-ext="head-support" hx-select="div.page" hx-target="div.page" hx-swap="outerHTML">
   <div id="fps">FPS: --</div>
   <button id="theme-toggle" type="button" aria-label="Toggle color theme"><span class="value"></span></button>
 
-  <div class="logo-stack">
-    <img class="main-logo" id="logo" src="/static/earendil-logo.svg" alt="Earendil">
-    <div class="logo-links">
-      <a class="updates-link" href="/updates/update-memorandum/">Updates</a>
-      <a class="updates-link" href="/purpose/">Purpose</a>
-      <a class="updates-link" href="/join/">Join Us</a>
+  <div class="page" hx-history-elt>
+    <div class="logo-stack">
+      <a href="/" class="logo-link"><img class="main-logo" id="logo" src="/static/earendil-logo.svg" alt="Earendil"></a>
+      <div class="logo-links">
+        {% if is_updates_section %}
+        <a class="updates-link" href="/updates/">Updates/</a>
+        <div class="updates-children">
+          {% for update in updates %}
+          <a class="updates-link updates-child{% if slug == update.slug %} is-active{% endif %}" href="{{ update.slug }}">{{ update.name }}</a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <a class="updates-link" href="/updates/">Updates</a>
+        {% endif %}
+        <a class="updates-link" href="/purpose/">Purpose</a>
+        <a class="updates-link" href="/join/">Join Us</a>
+      </div>
     </div>
-  </div>
 
-  <div class="body" hx-history-elt>
-    {% block body %}{% endblock %}
+    <div class="body">
+      {% block body %}{% endblock %}
+    </div>
   </div>
 
   <canvas id="canvas"></canvas>

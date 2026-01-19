@@ -56,11 +56,19 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   z-index: 10;
 }
 
+.logo-link {
+  display: block;
+  text-decoration: none;
+}
+
 .main-logo {
   width: 300px;
   max-width: 65vw;
   opacity: 0;
-  pointer-events: none;
+}
+
+.loaded .main-logo {
+  opacity: 0.85;
 }
 
 .logo-links {
@@ -71,6 +79,10 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   width: 100%;
   opacity: 0;
   padding-left: 24px;
+}
+
+.loaded .logo-links {
+  opacity: 0.85;
 }
 
 .updates-link {
@@ -88,6 +100,21 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+}
+
+.updates-children {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 16px;
+}
+
+.updates-child {
+  font-size: 13px;
+}
+
+.updates-child.is-active {
+  color: rgba(255, 255, 255, 1);
 }
 
 .theme-night .updates-link {
@@ -111,6 +138,12 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
     text-align: right;
     padding-left: 0;
     padding-right: 10px;
+  }
+
+  .updates-children {
+    align-items: flex-end;
+    padding-left: 0;
+    padding-right: 16px;
   }
 
   .main-logo {

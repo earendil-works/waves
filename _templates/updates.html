@@ -3,7 +3,7 @@
 {% block body %}
   <div class="updates-overlay" aria-hidden="true">
     <div class="updates-letter" role="dialog" aria-label="{{ page.aria_label }}">
-      <a class="updates-dismiss" href="/" hx-get="/" hx-push-url="true" aria-label="Dismiss">[close]</a>
+      <a class="updates-dismiss" href="{{ dismiss_url }}" aria-label="Dismiss" data-dismiss-url="{{ dismiss_url }}">[close]</a>
       <div class="email-meta">
         <p>From: {{ page.from }}</p>
         <p>To: {{ page.to }}</p>

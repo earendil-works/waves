@@ -59,7 +59,11 @@ def render_markdown(text: str) -> str:
 def slug_for_path(path: Path) -> str:
     rel = path.relative_to(ROOT)
     if rel.name == "_index.md":
-        return "/"
+        # _index.md represents the directory it's in
+        parent_parts = rel.parent.parts
+        if not parent_parts:
+            return "/"
+        return "/" + "/".join(parent_parts) + "/"
     without_ext = rel.with_suffix("")
     return "/" + "/".join(without_ext.parts) + "/"
 
@@ -67,7 +71,11 @@ def slug_for_path(path: Path) -> str:
 def output_path_for(path: Path) -> Path:
     rel = path.relative_to(ROOT)
     if rel.name == "_index.md":
-        return BUILD_DIR / "index.html"
+        # _index.md represents the directory it's in
+        parent_parts = rel.parent.parts
+        if not parent_parts:
+            return BUILD_DIR / "index.html"
+        return BUILD_DIR / Path(*parent_parts) / "index.html"
     without_ext = rel.with_suffix("")
     return BUILD_DIR / without_ext / "index.html"
 
@@ -86,6 +94,29 @@ def iter_markdown_files() -> list[Path]:
     return markdown_files
 
 
+def collect_updates() -> list[dict[str, Any]]:
+    """Collect all update files with their metadata."""
+    updates_dir = ROOT / "updates"
+    updates = []
+    if not updates_dir.exists():
+        return updates
+    for md_path in sorted(updates_dir.glob("*.md"), reverse=True):
+        if md_path.name == "_index.md":
+            continue
+        raw = md_path.read_text()
+        frontmatter, _ = parse_frontmatter(raw)
+        slug = slug_for_path(md_path)
+        name = md_path.stem  # e.g., "memorandum"
+        updates.append({
+            "name": name,
+            "slug": slug,
+            "title": frontmatter.get("title", name),
+            "date": frontmatter.get("date", ""),
+            "subject": frontmatter.get("subject", ""),
+        })
+    return updates
+
+
 def build() -> None:
     if BUILD_DIR.exists():
         shutil.rmtree(BUILD_DIR)
@@ -99,6 +130,9 @@ def build() -> None:
 
     env = Environment(loader=load_from_path(str(TEMPLATES_DIR)))
 
+    # Collect updates for navigation
+    updates = collect_updates()
+
     md_files = iter_markdown_files()
     for md_path in md_files:
         raw = md_path.read_text()
@@ -107,12 +141,21 @@ def build() -> None:
         html_body = render_markdown(body)
         output_path = output_path_for(md_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        slug = slug_for_path(md_path)
+        # Compute dismiss URL (parent directory)
+        if slug.startswith("/updates/") and slug != "/updates/":
+            dismiss_url = "/updates/"
+        else:
+            dismiss_url = "/"
         rendered = env.render_template(
             template_name,
             title=frontmatter.get("title", "Earendil"),
             page=frontmatter,
             content=safe(html_body),
-            slug=slug_for_path(md_path),
+            slug=slug,
+            updates=updates,
+            is_updates_section=slug.startswith("/updates/"),
+            dismiss_url=dismiss_url,
         )
         output_path.write_text(rendered)
         rel_path = md_path.relative_to(ROOT)

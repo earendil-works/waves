@@ -22,9 +22,9 @@
     setTimeout(callback, 350); // Match CSS transition duration
   }
 
-  function navigateToIndex() {
-    htmx.ajax('GET', '/', {target: 'div.body', swap: 'outerHTML'}).then(function() {
-      history.pushState({}, '', '/');
+  function navigateTo(url) {
+    htmx.ajax('GET', url, {target: 'div.page', swap: 'outerHTML'}).then(function() {
+      history.pushState({}, '', url);
     });
   }
 
@@ -36,7 +36,10 @@
       event.stopPropagation();
       var overlay = dismissLink.closest('.updates-overlay');
       if (overlay) {
-        closeOverlayWithAnimation(overlay, navigateToIndex);
+        var dismissUrl = dismissLink.getAttribute('data-dismiss-url') || '/';
+        closeOverlayWithAnimation(overlay, function() {
+          navigateTo(dismissUrl);
+        });
       }
     }
   });
@@ -46,7 +49,11 @@
     var overlay = event.target.closest('.updates-overlay');
     if (overlay && event.target === overlay) {
       event.preventDefault();
-      closeOverlayWithAnimation(overlay, navigateToIndex);
+      var dismissLink = overlay.querySelector('.updates-dismiss');
+      var dismissUrl = (dismissLink && dismissLink.getAttribute('data-dismiss-url')) || '/';
+      closeOverlayWithAnimation(overlay, function() {
+        navigateTo(dismissUrl);
+      });
     }
   });
 })();
@@ -72,9 +79,9 @@ const LOGO_SVG_URL = '/static/earendil-logo.svg';
 const THEME_STORAGE_KEY = 'earendil-theme-mode';
 const THEME_MODES = ['auto', 'night', 'day'];
 const THEME_LABELS = {
-  auto: 'auto',
-  night: 'dark',
-  day: 'light'
+  auto: 'AUTO',
+  night: 'DARK',
+  day: 'LIGHT'
 };
 
 // Quality settings for slower computers
@@ -1426,6 +1433,10 @@ setTimeout(() => {
     logoLinks.style.transition = `opacity ${fadeDuration}s ease`;
     logoLinks.style.opacity = `${LOGO_FADE_TARGET}`;
   }
+  // Mark body as loaded so HTMX swaps don't restart animation
+  setTimeout(() => {
+    document.body.classList.add('loaded');
+  }, fadeDuration * 1000);
 }, LOGO_FADE_DELAY);
 
 })();
