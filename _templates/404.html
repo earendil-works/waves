@@ -1,11 +1,9 @@
 {% extends "layout.html" %}
 
+{% block page_attrs %} data-page-type="404"{% endblock %}
+
 {% block body %}
-  <div class="updates-overlay" aria-hidden="true">
-    <div class="updates-letter error-letter" role="dialog" aria-label="{{ page.aria_label }}">
-      <div class="letter-body">
-        {{ content }}
-      </div>
-    </div>
+  <div class="error-text" role="alert" aria-label="{{ page.aria_label }}">
+    {{ content }}
   </div>
 {% endblock %}

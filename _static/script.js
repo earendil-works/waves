@@ -303,9 +303,74 @@ let nightFadeStart = null;
 let nightFadeFrom = nightBlend;
 let nightFadeTo = nightBlend;
 
+// 404 page camera animation
+const CAMERA_404_DURATION = 3000; // 3 seconds
+const CAMERA_404_Y_OFFSET = 1.0;  // Move camera up
+const CAMERA_404_Z_OFFSET = -8.0; // Move camera back (towards viewer)
+const CAMERA_404_TILT_OFFSET = -0.7; // Tilt camera down (radians)
+let camera404AnimStart = null;
+let camera404AnimFrom = { y: 0, z: 0, tilt: 0 };
+let camera404AnimTo = { y: 0, z: 0, tilt: 0 };
+let cameraYOffset = 0;
+let cameraZOffset = 0;
+let cameraTiltOffset = 0;
+
+function is404Page() {
+  const page = document.querySelector('.page');
+  return page && page.dataset.pageType === '404';
+}
+
+// Initialize target based on initial page state
+if (is404Page()) {
+  camera404AnimTo = { y: CAMERA_404_Y_OFFSET, z: CAMERA_404_Z_OFFSET, tilt: CAMERA_404_TILT_OFFSET };
+}
+
 function easeInOut(t) {
   return t * t * (3.0 - 2.0 * t);
 }
+
+function check404PageState() {
+  const is404Now = is404Page();
+  const targetY = is404Now ? CAMERA_404_Y_OFFSET : 0;
+  const targetZ = is404Now ? CAMERA_404_Z_OFFSET : 0;
+  const targetTilt = is404Now ? CAMERA_404_TILT_OFFSET : 0;
+  
+  // If target changed, start new animation from current position
+  if (camera404AnimTo.y !== targetY || camera404AnimTo.z !== targetZ || camera404AnimTo.tilt !== targetTilt) {
+    camera404AnimFrom = { y: cameraYOffset, z: cameraZOffset, tilt: cameraTiltOffset };
+    camera404AnimTo = { y: targetY, z: targetZ, tilt: targetTilt };
+    camera404AnimStart = null; // Will be set on next render frame
+  }
+}
+
+function updateCamera404(time) {
+  // Already at target
+  if (cameraYOffset === camera404AnimTo.y && cameraZOffset === camera404AnimTo.z && cameraTiltOffset === camera404AnimTo.tilt) {
+    return;
+  }
+
+  if (camera404AnimStart === null) {
+    camera404AnimStart = time;
+  }
+
+  const elapsed = time - camera404AnimStart;
+  const progress = Math.min(elapsed / CAMERA_404_DURATION, 1);
+  const eased = easeInOut(progress);
+
+  cameraYOffset = camera404AnimFrom.y + (camera404AnimTo.y - camera404AnimFrom.y) * eased;
+  cameraZOffset = camera404AnimFrom.z + (camera404AnimTo.z - camera404AnimFrom.z) * eased;
+  cameraTiltOffset = camera404AnimFrom.tilt + (camera404AnimTo.tilt - camera404AnimFrom.tilt) * eased;
+  
+  // Snap to final values when done
+  if (progress >= 1) {
+    cameraYOffset = camera404AnimTo.y;
+    cameraZOffset = camera404AnimTo.z;
+    cameraTiltOffset = camera404AnimTo.tilt;
+  }
+}
+
+// Listen for HTMX navigation to update 404 state
+document.body.addEventListener('htmx:afterSettle', check404PageState);
 
 function updateNightBlend(time) {
   const desired = getNightPreference() ? 1.0 : 0.0;
@@ -491,6 +556,9 @@ function buildFragmentShader(quality) {
   uniform int u_rippleCount;
   uniform float u_night;
   uniform float u_ambientIntensity;
+  uniform float u_cameraYOffset;
+  uniform float u_cameraZOffset;
+  uniform float u_cameraTiltOffset;
 
   // afl_ext 2017-2024
   // MIT License
@@ -672,8 +740,9 @@ function buildFragmentShader(quality) {
     vec2 uv = ((fragCoord.xy / iResolution.xy) * 2.0 - 1.0) * vec2(iResolution.x / iResolution.y, 1.0);
     vec3 proj = normalize(vec3(uv.x, uv.y, 1.5));
     // Fixed camera angle (no mouse movement) - tilted down to show only water
+    // u_cameraTiltOffset adds additional downward tilt (negative = look down more)
     return createRotationMatrixAxisAngle(vec3(0.0, -1.0, 0.0), 0.0) 
-      * createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), -0.05)
+      * createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), -0.05 + u_cameraTiltOffset)
       * proj;
   }
 
@@ -797,7 +866,7 @@ function buildFragmentShader(quality) {
 
     vec3 waterPlaneHigh = vec3(0.0, 0.0, 0.0);
     vec3 waterPlaneLow = vec3(0.0, -WATER_DEPTH, 0.0);
-    vec3 origin = vec3(iTime * 0.2, CAMERA_HEIGHT, 1);
+    vec3 origin = vec3(iTime * 0.2, CAMERA_HEIGHT + u_cameraYOffset, 1.0 + u_cameraZOffset);
 
     float highPlaneHit = intersectPlane(origin, ray, waterPlaneHigh, vec3(0.0, 1.0, 0.0));
     float lowPlaneHit = intersectPlane(origin, ray, waterPlaneLow, vec3(0.0, 1.0, 0.0));
@@ -902,6 +971,9 @@ let ripplesLocation = gl.getUniformLocation(program, 'u_ripples');
 let rippleCountLocation = gl.getUniformLocation(program, 'u_rippleCount');
 let nightLocation = gl.getUniformLocation(program, 'u_night');
 let ambientLocation = gl.getUniformLocation(program, 'u_ambientIntensity');
+let cameraYOffsetLocation = gl.getUniformLocation(program, 'u_cameraYOffset');
+let cameraZOffsetLocation = gl.getUniformLocation(program, 'u_cameraZOffset');
+let cameraTiltOffsetLocation = gl.getUniformLocation(program, 'u_cameraTiltOffset');
 
 function rebuildOceanProgram() {
   fragmentShaderSource = buildFragmentShader(currentQuality);
@@ -923,6 +995,9 @@ function rebuildOceanProgram() {
   rippleCountLocation = gl.getUniformLocation(program, 'u_rippleCount');
   nightLocation = gl.getUniformLocation(program, 'u_night');
   ambientLocation = gl.getUniformLocation(program, 'u_ambientIntensity');
+  cameraYOffsetLocation = gl.getUniformLocation(program, 'u_cameraYOffset');
+  cameraZOffsetLocation = gl.getUniformLocation(program, 'u_cameraZOffset');
+  cameraTiltOffsetLocation = gl.getUniformLocation(program, 'u_cameraTiltOffset');
 }
 
 function setQuality(quality) {
@@ -1168,18 +1243,19 @@ function screenToWaterHit(clientX, clientY, time) {
   const len = Math.hypot(rayX, rayY, rayZ);
   rayX /= len; rayY /= len; rayZ /= len;
   
-  // Apply camera tilt (-0.05 radians around X axis)
-  const cosTilt = Math.cos(-0.05);
-  const sinTilt = Math.sin(-0.05);
+  // Apply camera tilt (-0.05 + cameraTiltOffset radians around X axis)
+  const tiltAngle = -0.05 + cameraTiltOffset;
+  const cosTilt = Math.cos(tiltAngle);
+  const sinTilt = Math.sin(tiltAngle);
   const newY = rayY * cosTilt - rayZ * sinTilt;
   const newZ = rayY * sinTilt + rayZ * cosTilt;
   rayY = newY;
   rayZ = newZ;
   
-  // Camera position (matches shader)
+  // Camera position (matches shader, including offsets)
   const camX = time * 0.2;
-  const camY = 1.5; // CAMERA_HEIGHT
-  const camZ = 1.0;
+  const camY = 1.5 + cameraYOffset; // CAMERA_HEIGHT + offset
+  const camZ = 1.0 + cameraZOffset;
   
   // Intersect with y=0 plane
   if (rayY >= 0) return null; // Looking up, no water hit
@@ -1226,8 +1302,10 @@ function screenPosToSkyUV(screenX, screenY, aspect) {
   let rayY = projY / projLen;
   let rayZ = projZ / projLen;
 
-  const cosTilt = Math.cos(-0.05);
-  const sinTilt = Math.sin(-0.05);
+  // Apply camera tilt (-0.05 + cameraTiltOffset radians around X axis)
+  const tiltAngle = -0.05 + cameraTiltOffset;
+  const cosTilt = Math.cos(tiltAngle);
+  const sinTilt = Math.sin(tiltAngle);
   const rotatedY = rayY * cosTilt + rayZ * sinTilt;
   const rotatedZ = -rayY * sinTilt + rayZ * cosTilt;
   rayY = rotatedY;
@@ -1492,6 +1570,7 @@ function render(time) {
   const logoFade = logoProgress * LOGO_FADE_TARGET;
   const nightValue = updateNightBlend(time);
   const ambientIntensity = 1.0 + (0.28 - 1.0) * nightValue;
+  updateCamera404(time);
 
   // Pass 1: Render ocean waves to framebuffer
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
@@ -1507,6 +1586,9 @@ function render(time) {
   gl.uniform1f(logoFadeLocation, logoFade);
   gl.uniform1f(nightLocation, nightValue);
   gl.uniform1f(ambientLocation, ambientIntensity);
+  gl.uniform1f(cameraYOffsetLocation, cameraYOffset);
+  gl.uniform1f(cameraZOffsetLocation, cameraZOffset);
+  gl.uniform1f(cameraTiltOffsetLocation, cameraTiltOffset);
   gl.activeTexture(gl.TEXTURE1);
   gl.bindTexture(gl.TEXTURE_2D, lightTextures[lightWriteIndex]);
   gl.uniform1i(lightTextureLocation, 1);

@@ -12,11 +12,11 @@
   <link href="/updates/feed.atom" rel="alternate" title="Earendil Updates" type="application/atom+xml">
   <link href="/updates/feed.rss" rel="alternate" title="Earendil Updates" type="application/rss+xml">
 </head>
-<body hx-boost="true" hx-ext="head-support" hx-select="div.page" hx-target="div.page" hx-swap="outerHTML"{% if slug != "/" %} class="skip-intro"{% endif %}>
+<body hx-boost="true" hx-ext="head-support" hx-select="div.page" hx-target="div.page" hx-swap="outerHTML" class="{% if slug != "/" %}skip-intro{% endif %}">
   <div id="fps">FPS: --</div>
   <button id="theme-toggle" type="button" aria-label="Toggle color theme"><span class="value"></span></button>
 
-  <div class="page" hx-history-elt>
+  <div class="page" hx-history-elt{% block page_attrs %}{% endblock %}>
     <div class="logo-stack">
       <a href="/" class="logo-link"><img class="main-logo" id="logo" src="/static/earendil-logo.svg" alt="Earendil"></a>
       <div class="logo-links">

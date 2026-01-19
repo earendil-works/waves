@@ -471,3 +471,29 @@ canvas.shader-ready { opacity: 1; }
 .error-letter {
   text-align: center;
 }
+
+.error-text {
+  position: fixed;
+  bottom: 80px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font: 15px/1.5 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.02em;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 1s ease 2s, transform 1s ease 2s;
+}
+
+.page[data-page-type="404"] .error-text {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.error-text p {
+  margin: 0;
+}
