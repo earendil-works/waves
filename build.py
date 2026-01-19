@@ -85,7 +85,11 @@ def iter_markdown_files() -> list[Path]:
     for root, dirs, files in os.walk(ROOT):
         root_path = Path(root)
         # Skip build artifacts and template/static dirs
-        dirs[:] = [d for d in dirs if d not in {"_build", "_templates", "_static", ".git"}]
+        dirs[:] = [
+            d
+            for d in dirs
+            if d not in {"_build", "_build_tmp"} and not d.startswith(("_", "."))
+        ]
         for filename in files:
             if not filename.endswith(".md"):
                 continue
@@ -186,7 +190,7 @@ def build() -> None:
 HOST = "127.0.0.1"
 PORT = 8000
 DEBOUNCE_DELAY = 0.3
-IGNORE_DIRS = {"_build", ".git"}
+IGNORE_DIRS = {"_build", "_build_tmp", ".git"}
 
 # Global dictionary to track reload events by connection ID
 RELOAD_EVENTS: dict[int, threading.Event] = {}
@@ -323,7 +327,7 @@ class BackgroundBuilder:
         try:
             rel = path_obj.relative_to(ROOT)
             parts = rel.parts
-            return any(part in IGNORE_DIRS or part.startswith(".") for part in parts)
+            return any(part in IGNORE_DIRS or part.startswith(("_", ".")) for part in parts)
         except ValueError:
             return True
 
