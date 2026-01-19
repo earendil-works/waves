@@ -1460,6 +1460,15 @@ function updateLightTexture(time) {
   lightWriteIndex = writeIndex;
 }
 
+// Mark shader as ready after first successful frame
+let shaderReady = false;
+function markShaderReady() {
+  if (!shaderReady && program) {
+    shaderReady = true;
+    canvas.classList.add('shader-ready');
+  }
+}
+
 function render(time) {
   // Update FPS counter
   frameCount++;
@@ -1536,6 +1545,7 @@ function render(time) {
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
+  markShaderReady();
   requestAnimationFrame(render);
 }
 
