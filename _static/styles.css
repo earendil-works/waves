@@ -93,6 +93,7 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   letter-spacing: 0.18em;
   color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
   transition: color 0.2s ease, opacity 0.2s ease;
   cursor: url('/static/cursor-light.svg') 12 12, pointer;
 }
@@ -161,7 +162,7 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   align-items: flex-start;
   justify-content: center;
   padding: 30px;
-  background: rgba(8, 9, 12, 0.35);
+  background: transparent;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.35s ease;
@@ -172,7 +173,6 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
 .updates-overlay:target,
 .updates-overlay.is-open {
   opacity: 1;
-  pointer-events: auto;
 }
 
 /* Closing animation - transition back to hidden state */
@@ -186,6 +186,10 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
   width: min(780px, 92vw);
   margin: auto 0;
   padding: 78px 70px 72px;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  pointer-events: auto;
   background: url('/static/paper.png') center/256px 256px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(25, 20, 12, 0.2);

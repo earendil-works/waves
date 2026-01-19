@@ -321,7 +321,13 @@ class BackgroundBuilder:
 
     def _on_change(self, event):
         """Handle any file system change."""
-        if event.is_directory or self.should_ignore(event.src_path):
+        if event.is_directory:
+            return
+        paths = [event.src_path]
+        dest_path = getattr(event, "dest_path", None)
+        if dest_path:
+            paths.append(dest_path)
+        if all(self.should_ignore(path) for path in paths if path):
             return
         self.last_change_time = time.time()
 

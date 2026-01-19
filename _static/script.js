@@ -44,17 +44,18 @@
     }
   });
 
-  // Handle backdrop clicks
+  // Handle background clicks while allowing underlying links
   document.body.addEventListener('click', function(event) {
-    var overlay = event.target.closest('.updates-overlay');
-    if (overlay && event.target === overlay) {
-      event.preventDefault();
-      var dismissLink = overlay.querySelector('.updates-dismiss');
-      var dismissUrl = (dismissLink && dismissLink.getAttribute('data-dismiss-url')) || '/';
-      closeOverlayWithAnimation(overlay, function() {
-        navigateTo(dismissUrl);
-      });
-    }
+    var overlay = document.querySelector('.updates-overlay.is-open');
+    if (!overlay) return;
+    if (event.target.closest('.updates-letter')) return;
+    if (event.target.closest('.updates-dismiss')) return;
+    if (event.target.closest('a')) return;
+    var dismissLink = overlay.querySelector('.updates-dismiss');
+    var dismissUrl = (dismissLink && dismissLink.getAttribute('data-dismiss-url')) || '/';
+    closeOverlayWithAnimation(overlay, function() {
+      navigateTo(dismissUrl);
+    });
   });
 })();
 
@@ -1257,7 +1258,14 @@ function queueLightPoints(event) {
   }
 }
 
+function isUpdateOverlayOpen() {
+  return !!document.querySelector('.updates-overlay.is-open');
+}
+
 canvas.addEventListener('pointerdown', (event) => {
+  if (isUpdateOverlayOpen()) {
+    return;
+  }
   isDrawing = true;
   queueLightPoints(event);
 });
@@ -1274,6 +1282,9 @@ window.addEventListener('pointerup', () => {
 
 // Ripple on click
 canvas.addEventListener('click', (e) => {
+  if (isUpdateOverlayOpen()) {
+    return;
+  }
   const time = performance.now() * 0.001;
   const hit = screenToWaterHit(e.clientX, e.clientY, time);
   if (hit) {
