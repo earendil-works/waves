@@ -214,6 +214,7 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
 .letter-footer {
   margin-top: 28px;
   font-weight: 400;
+  line-height: 1.5;
   color: rgba(25, 24, 22, 0.6);
 }
 
@@ -223,14 +224,6 @@ canvas { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
 
 .signature-delimiter {
   margin-bottom: 6px;
-}
-
-.signature-detail {
-  margin-bottom: 4px;
-}
-
-.signature-detail:last-child {
-  margin-bottom: 0;
 }
 
 .letter-footer a {
