@@ -42,7 +42,7 @@
         });
       }
     }
-  });
+  }, true);
 
   // Handle background clicks while allowing underlying links
   document.body.addEventListener('click', function(event) {
@@ -56,6 +56,20 @@
     closeOverlayWithAnimation(overlay, function() {
       navigateTo(dismissUrl);
     });
+  });
+
+  // Handle Escape key to close overlay
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      var overlay = document.querySelector('.updates-overlay.is-open');
+      if (!overlay) return;
+      event.preventDefault();
+      var dismissLink = overlay.querySelector('.updates-dismiss');
+      var dismissUrl = (dismissLink && dismissLink.getAttribute('data-dismiss-url')) || '/';
+      closeOverlayWithAnimation(overlay, function() {
+        navigateTo(dismissUrl);
+      });
+    }
   });
 })();
 
