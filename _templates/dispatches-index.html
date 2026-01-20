@@ -9,7 +9,7 @@
         {% if dispatches %}
         <ul class="dispatches-list">
           {% for dispatch in dispatches %}
-          <li><a href="{{ dispatch.slug }}">{{ dispatch.title }}</a></li>
+          <li><a href="{{ dispatch.slug }}">{% if dispatch.parsed_date %}{{ dispatch.parsed_date.strftime("%Y%m%d") }} {% endif %}{{ dispatch.title }}</a></li>
           {% endfor %}
         </ul>
         {% endif %}

@@ -575,7 +575,7 @@ canvas.shader-ready { opacity: 1; }
 
 .error-text {
   position: fixed;
-  top: 50%;
+  top: 70%;
   left: 50%;
   transform: translate(-50%, -50%) translateY(20px);
   text-align: center;
