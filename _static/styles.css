@@ -2,7 +2,7 @@
 :root {
   --cursor-light: url('/static/cursor-light.svg') 12 12;
   --cursor-dark: url('/static/cursor-dark.svg') 12 12;
-  --mono-font: 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  --mono-font: 'Commit Mono', 'SFMono-Regular', ui-monospace, monospace;
 }
 html, body {
   cursor: var(--cursor-light), auto;
