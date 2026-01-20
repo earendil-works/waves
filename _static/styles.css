@@ -1,8 +1,17 @@
 * { margin: 0; padding: 0; }
 html, body {
-  overflow: hidden;
   cursor: url('/static/cursor-light.svg') 12 12, auto;
   background: #b8b8b8;
+}
+html {
+  overflow: hidden;
+}
+body {
+  overflow: hidden;
+}
+body.has-overlay {
+  overflow-y: auto;
+  height: auto;
 }
 .theme-night, .theme-night body {
   background: #1a1a1a;
@@ -12,6 +21,9 @@ canvas {
   display: block;
   width: 100vw;
   height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
   image-rendering: auto;
   opacity: 0;
   transition: opacity 1000ms ease;
@@ -206,8 +218,8 @@ canvas.shader-ready { opacity: 1; }
 }
 
 .updates-overlay {
-  position: fixed;
-  inset: 0;
+  position: relative;
+  min-height: 100vh;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -217,12 +229,12 @@ canvas.shader-ready { opacity: 1; }
   pointer-events: none;
   transition: opacity 0.35s ease;
   z-index: 200;
-  overflow-y: auto;
 }
 
 .updates-overlay:target,
 .updates-overlay.is-open {
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* Closing animation - transition back to hidden state */
@@ -236,8 +248,6 @@ canvas.shader-ready { opacity: 1; }
   width: min(780px, 92vw);
   margin: auto 0;
   padding: 78px 70px 72px;
-  max-height: calc(100vh - 60px);
-  overflow-y: auto;
   box-sizing: border-box;
   pointer-events: auto;
   background: url('/static/paper.png') center/256px 256px;

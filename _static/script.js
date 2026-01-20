@@ -1,11 +1,16 @@
 // Overlay animation handling
 (function() {
   function openOverlays() {
+    var hasOverlay = document.querySelectorAll('.updates-overlay').length > 0;
+    document.body.classList.toggle('has-overlay', hasOverlay);
     document.querySelectorAll('.updates-overlay').forEach(function(overlay) {
       void overlay.offsetWidth;
       overlay.classList.add('is-open');
       overlay.setAttribute('aria-hidden', 'false');
     });
+    if (hasOverlay) {
+      window.scrollTo(0, 0);
+    }
   }
   openOverlays();
 
@@ -19,6 +24,7 @@
     overlay.classList.add('is-closing');
     overlay.classList.remove('is-open');
     overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('has-overlay');
     setTimeout(callback, 350); // Match CSS transition duration
   }
 

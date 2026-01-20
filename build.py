@@ -320,7 +320,7 @@ def build() -> None:
     temp_dir.replace(BUILD_DIR)
 
 
-HOST = "127.0.0.1"
+HOST = "0.0.0.0"
 PORT = 8000
 DEBOUNCE_DELAY = 0.3
 IGNORE_DIRS = {"_build", "_build_tmp", ".git"}
