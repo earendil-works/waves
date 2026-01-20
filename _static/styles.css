@@ -1,6 +1,11 @@
 * { margin: 0; padding: 0; }
+:root {
+  --cursor-light: url('/static/cursor-light.svg') 12 12;
+  --cursor-dark: url('/static/cursor-dark.svg') 12 12;
+  --mono-font: 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+}
 html, body {
-  cursor: url('/static/cursor-light.svg') 12 12, auto;
+  cursor: var(--cursor-light), auto;
   background: #b8b8b8;
 }
 html {
@@ -34,10 +39,10 @@ canvas.shader-ready { opacity: 1; }
 
 #site-footer {
   position: fixed;
-  bottom: 20px;
-  left: 20px;
+  bottom: 75px;
+  left: 75px;
   color: rgba(255, 255, 255, 0.95);
-  font: 14px/1 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  font: 14px/1 var(--mono-font);
   padding: 6px 10px;
   z-index: 120;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
@@ -45,30 +50,30 @@ canvas.shader-ready { opacity: 1; }
 
 #theme-toggle {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: 75px;
+  right: 75px;
   border: 0;
   background: none;
   color: rgba(255, 255, 255, 0.95);
-  font: 14px/1 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  font: 14px/1 var(--mono-font);
   padding: 6px 10px;
   z-index: 120;
-  cursor: url('/static/cursor-light.svg') 12 12, pointer;
+  cursor: var(--cursor-light), pointer;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   transition: color 0.2s ease;
 }
 
 #theme-toggle:hover {
   color: rgba(255, 255, 255, 1);
-  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+  cursor: var(--cursor-dark), pointer;
 }
 
 .theme-night #theme-toggle {
-  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+  cursor: var(--cursor-dark), pointer;
 }
 
 .theme-night #theme-toggle:hover {
-  cursor: url('/static/cursor-light.svg') 12 12, pointer;
+  cursor: var(--cursor-light), pointer;
 }
 
 #theme-toggle .label {
@@ -82,9 +87,9 @@ canvas.shader-ready { opacity: 1; }
 /* Logo styles */
 .logo-stack {
   position: fixed;
-  top: 30px;
-  left: 36px;
-  right: 36px;
+  top: 75px;
+  left: 75px;
+  right: 75px;
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
@@ -133,6 +138,7 @@ canvas.shader-ready { opacity: 1; }
   align-items: flex-end;
   opacity: 0;
   margin-top: 0;
+  transition: opacity 0.35s ease;
 }
 
 .loaded .logo-links,
@@ -141,21 +147,21 @@ canvas.shader-ready { opacity: 1; }
 }
 
 .updates-link {
-  font: 14px/1.2 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  font: 14px/1.2 var(--mono-font);
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
   transition: color 0.2s ease, opacity 0.2s ease;
-  cursor: url('/static/cursor-light.svg') 12 12, pointer;
+  cursor: var(--cursor-light), pointer;
 }
 
 .updates-link:hover {
   color: rgba(255, 255, 255, 1);
   text-decoration: underline;
   text-underline-offset: 3px;
-  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+  cursor: var(--cursor-dark), pointer;
 }
 
 .updates-children {
@@ -176,18 +182,28 @@ canvas.shader-ready { opacity: 1; }
 }
 
 .theme-night .updates-link {
-  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+  cursor: var(--cursor-dark), pointer;
 }
 
 .theme-night .updates-link:hover {
-  cursor: url('/static/cursor-light.svg') 12 12, pointer;
+  cursor: var(--cursor-light), pointer;
 }
 
 @media (max-width: 800px) {
+  #site-footer {
+    bottom: 40px;
+    left: 40px;
+  }
+
+  #theme-toggle {
+    bottom: 40px;
+    right: 40px;
+  }
+
   .logo-stack {
-    top: 26px;
-    left: 24px;
-    right: 24px;
+    top: 40px;
+    left: 40px;
+    right: 40px;
   }
 
   .main-logo {
@@ -197,10 +213,20 @@ canvas.shader-ready { opacity: 1; }
 }
 
 @media (max-width: 520px) {
+  #site-footer {
+    bottom: 28px;
+    left: 28px;
+  }
+
+  #theme-toggle {
+    bottom: 28px;
+    right: 28px;
+  }
+
   .logo-stack {
-    top: 22px;
-    left: 20px;
-    right: 20px;
+    top: 28px;
+    left: 28px;
+    right: 28px;
   }
 
   .logo-stack .logo-link {
@@ -256,19 +282,19 @@ canvas.shader-ready { opacity: 1; }
   background: linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08)), url('/static/paper.png') center/256px 256px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(25, 20, 12, 0.2);
-  font: 15px/1.5 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  font: 15px/1.5 var(--mono-font);
   color: #1c1b1a;
   letter-spacing: 0.02em;
   opacity: 0;
   transform: translateY(12px);
   transition: opacity 0.35s ease, transform 0.35s ease;
-  cursor: url('/static/cursor-dark.svg') 12 12, auto;
+  cursor: var(--cursor-dark), auto;
 }
 
 .theme-night .updates-letter {
   background: url('/static/paper-dark.png') center/256px 256px;
   color: rgba(240, 240, 240, 0.8);
-  cursor: url('/static/cursor-light.svg') 12 12, auto;
+  cursor: var(--cursor-light), auto;
 }
 
 .updates-overlay:target .updates-letter,
@@ -290,18 +316,15 @@ canvas.shader-ready { opacity: 1; }
   text-decoration: none;
   color: rgba(25, 24, 22, 0.7);
   font-size: inherit;
-  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+  cursor: var(--cursor-dark), pointer;
 }
 
 .theme-night .updates-dismiss {
   color: rgba(240, 240, 240, 0.8);
-  cursor: url('/static/cursor-light.svg') 12 12, pointer;
+  cursor: var(--cursor-light), pointer;
 }
 
-.updates-dismiss:hover {
-  color: #fff;
-}
-
+.updates-dismiss:hover,
 .theme-night .updates-dismiss:hover {
   color: #fff;
 }
@@ -339,19 +362,32 @@ canvas.shader-ready { opacity: 1; }
   left: 0;
 }
 
-.dispatches-list li {
+.posts-list li {
   padding-left: 0;
 }
 
-.dispatches-list li::before {
+.posts-list li::before {
   content: none;
+}
+
+.posts-title {
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.post-date {
+  font-weight: 400;
+}
+
+.post-name {
+  margin-left: 0.6em;
 }
 
 .letter-body a {
   color: inherit;
   text-decoration: none;
   font-weight: 700;
-  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+  cursor: var(--cursor-dark), pointer;
 }
 
 /* Updates page email form styles */
@@ -468,7 +504,7 @@ canvas.shader-ready { opacity: 1; }
   position: relative;
   top: 2px;
   color: rgba(25, 24, 22, 0.6);
-  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+  cursor: var(--cursor-dark), pointer;
   transition: color 0.2s ease;
 }
 
@@ -518,7 +554,7 @@ canvas.shader-ready { opacity: 1; }
 
 .theme-night .updates-enter {
   color: rgba(240, 240, 240, 0.6);
-  cursor: url('/static/cursor-light.svg') 12 12, pointer;
+  cursor: var(--cursor-light), pointer;
 }
 
 .theme-night .updates-enter:hover {
@@ -532,16 +568,13 @@ canvas.shader-ready { opacity: 1; }
 }
 
 .theme-night .letter-body a {
-  cursor: url('/static/cursor-light.svg') 12 12, pointer;
+  cursor: var(--cursor-light), pointer;
 }
 
-.letter-body a:hover {
-  color: #fff;
-  text-decoration: none;
-}
-
+.letter-body a:hover,
 .theme-night .letter-body a:hover {
   color: #fff;
+  text-decoration: none;
 }
 
 .letter-footer {
@@ -562,20 +595,17 @@ canvas.shader-ready { opacity: 1; }
 .letter-footer a {
   color: inherit;
   text-decoration: none;
-  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+  cursor: var(--cursor-dark), pointer;
 }
 
 .theme-night .letter-footer a {
-  cursor: url('/static/cursor-light.svg') 12 12, pointer;
+  cursor: var(--cursor-light), pointer;
 }
 
-.letter-footer a:hover {
-  color: #fff;
-  text-decoration: none;
-}
-
+.letter-footer a:hover,
 .theme-night .letter-footer a:hover {
   color: #fff;
+  text-decoration: none;
 }
 
 .mono-bold {
@@ -612,7 +642,7 @@ canvas.shader-ready { opacity: 1; }
   left: 50%;
   transform: translate(-50%, -50%) translateY(20px);
   text-align: center;
-  font: 15px/1.5 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  font: 15px/1.5 var(--mono-font);
   color: rgba(255, 255, 255, 0.9);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   letter-spacing: 0.02em;
@@ -634,7 +664,7 @@ canvas.shader-ready { opacity: 1; }
 /* Purpose and Join pages - Louize font */
 [data-page="/purpose/"] .letter-body,
 [data-page="/join/"] .letter-body {
-  font-family: 'Louize', 'EB Garamond', Garamond, serif;
+  font-family: 'EB Garamond', Garamond, serif;
   font-size: 20px;
   line-height: 1.6;
 }

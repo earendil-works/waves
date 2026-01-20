@@ -638,8 +638,8 @@ const lightPointVertexShaderSource = `
 
 const LIGHT_INTENSITY = 1.0;
 const PAINT_INTENSITY = LIGHT_INTENSITY / 3;
-const LOGO_FADE_DELAY = 600;
-const LOGO_FADE_DURATION = 2500;
+const LOGO_FADE_DELAY = 150;
+const LOGO_FADE_DURATION = 900;
 const LOGO_FADE_TARGET = 0.85;
 
 const lightPointFragmentShaderSource = `
