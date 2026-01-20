@@ -9,8 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/fonts/berkeley-mono.css">
   <link rel="stylesheet" href="/static/styles.css">
-  <link href="/updates/feed.atom" rel="alternate" title="Earendil Updates" type="application/atom+xml">
-  <link href="/updates/feed.rss" rel="alternate" title="Earendil Updates" type="application/rss+xml">
+  <link href="/dispatches/feed.atom" rel="alternate" title="Earendil Dispatches" type="application/atom+xml">
+  <link href="/dispatches/feed.rss" rel="alternate" title="Earendil Dispatches" type="application/rss+xml">
 </head>
 <body hx-boost="true" hx-ext="head-support" hx-select="div.page" hx-target="div.page" hx-swap="outerHTML" class="{% if slug != "/" %}skip-intro{% endif %}">
   <div id="fps">FPS: --</div>
@@ -21,18 +21,8 @@
       <a href="/" class="logo-link"><img class="main-logo" id="logo" src="/static/earendil-logo.svg" alt="Earendil"></a>
       <div class="logo-links">
         <a class="updates-link" href="/purpose/">Purpose</a>
-        {% if is_updates_section %}
-        <a class="updates-link" href="/updates/">Updates/</a>
-        <div class="updates-children">
-          {% for update in updates %}
-          <a class="updates-link updates-child{% if slug == update.slug %} is-active{% endif %}" href="{{ update.slug }}">{{ update.name }}</a>
-          {% endfor %}
-          <a class="updates-link updates-child{% if slug == "/updates/subscribe/" %} is-active{% endif %}" href="/updates/subscribe/">Subscribe</a>
-        </div>
-        {% else %}
-        <a class="updates-link" href="/updates/">Updates</a>
-        {% endif %}
         <a class="updates-link" href="/join/">Join Us</a>
+        <a class="updates-link" href="/dispatches/">Dispatches</a>
         <a class="updates-link" href="https://github.com/earendil-works/" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
     </div>

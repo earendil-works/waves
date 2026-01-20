@@ -79,17 +79,30 @@
   });
 })();
 
-// Subscribe form handling
+// Subscribe form handling (updates page email flow)
 (function() {
-  function initSubscribeForm() {
+  function clearElement(el) {
+    if (!el) return;
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function initUpdatesForm() {
     var form = document.querySelector('[data-subscribe-form]');
     if (!form || form.dataset.initialized) return;
     form.dataset.initialized = 'true';
 
-    var input = form.querySelector('.subscribe-input');
-    var button = form.querySelector('.subscribe-button');
-    var messageEl = form.parentElement && form.parentElement.querySelector('.subscribe-message');
+    var input = document.getElementById('updates-email');
+    if (!input) return;
 
+    var display = document.getElementById('updates-display');
+    var cursor = document.getElementById('updates-cursor');
+    var enterBtn = document.getElementById('updates-enter');
+    var messageEl = document.getElementById('updates-message');
+    var wrapper = form.querySelector('.updates-input-wrapper');
+    var isPlaceholder = input.value === '';
+    var lastValidValue = '';
+
+    // Valid email: user@domain.tld where tld has 2+ chars after final dot
     function isValidEmail(email) {
       var atIndex = email.indexOf('@');
       if (atIndex < 1) return false;
@@ -100,54 +113,126 @@
       return tld.length >= 2;
     }
 
-    function showMessage(text) {
-      if (!messageEl) return;
-      messageEl.textContent = text;
-      messageEl.hidden = false;
+    function showAnimatedDisplay(val) {
+      if (!display) return;
+      clearElement(display);
+      var fragment = document.createDocumentFragment();
+      val.split('').forEach(function(c, i) {
+        var span = document.createElement('span');
+        span.className = 'updates-char';
+        span.style.animationDelay = (i * 30) + 'ms';
+        span.textContent = c;
+        fragment.appendChild(span);
+      });
+      display.appendChild(fragment);
+      display.hidden = false;
+      display.classList.add('valid');
+      input.classList.add('has-display');
+      lastValidValue = val;
     }
 
-    var submittingInterval = null;
-
-    function startSubmittingMessage() {
-      var dots = 0;
-      showMessage('Subscribing');
-      submittingInterval = window.setInterval(function() {
-        dots = (dots + 1) % 4;
-        var suffix = dots === 0 ? '' : dots === 1 ? '.' : dots === 2 ? '..' : '...';
-        showMessage('Subscribing' + suffix);
-      }, 450);
+    function hideAnimatedDisplay() {
+      if (!display) return;
+      display.hidden = true;
+      display.classList.remove('valid');
+      input.classList.remove('has-display');
+      lastValidValue = '';
     }
 
-    function stopSubmittingMessage() {
-      if (submittingInterval) {
-        window.clearInterval(submittingInterval);
-        submittingInterval = null;
+    function updateState() {
+      var val = input.value;
+      var isEmpty = val === '';
+
+      if (isEmpty) {
+        isPlaceholder = true;
+        input.classList.add('placeholder-text');
+        hideAnimatedDisplay();
+        if (enterBtn) enterBtn.hidden = true;
+      } else if (isValidEmail(val)) {
+        isPlaceholder = false;
+        input.classList.remove('placeholder-text');
+        if (val !== lastValidValue) {
+          showAnimatedDisplay(val);
+        }
+        if (enterBtn) enterBtn.hidden = false;
+      } else {
+        isPlaceholder = false;
+        input.classList.remove('placeholder-text');
+        hideAnimatedDisplay();
+        if (enterBtn) enterBtn.hidden = true;
       }
     }
 
-    function setSubmitting(isSubmitting) {
-      if (!form) return;
-      form.classList.toggle('is-hidden', isSubmitting);
-      form.hidden = isSubmitting;
-      if (input) input.disabled = isSubmitting;
-      if (button) button.disabled = isSubmitting;
+    function showCursor() {
+      if (cursor) cursor.classList.add('visible');
     }
 
-    function setSubmitted() {
-      if (form) form.hidden = true;
-      showMessage('Welcome aboard. You are subscribed!');
+    function hideCursor() {
+      if (cursor) cursor.classList.remove('visible');
+    }
+
+    input.addEventListener('focus', function() {
+      hideCursor();
+      if (enterBtn) enterBtn.hidden = true;
+      if (!isPlaceholder) {
+        input.classList.remove('has-display');
+        hideAnimatedDisplay();
+      }
+    });
+
+    input.addEventListener('input', function() {
+      updateState();
+    });
+
+    input.addEventListener('blur', function() {
+      if (input.value === '') {
+        isPlaceholder = true;
+        hideAnimatedDisplay();
+        input.classList.add('placeholder-text');
+        showCursor();
+        if (enterBtn) enterBtn.hidden = true;
+      } else if (isValidEmail(input.value)) {
+        showAnimatedDisplay(input.value);
+        if (enterBtn) enterBtn.hidden = false;
+      }
+    });
+
+    if (wrapper) {
+      wrapper.addEventListener('click', function(e) {
+        if (e.target !== input) input.focus();
+      });
+    }
+
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && isValidEmail(input.value)) {
+        e.preventDefault();
+        submit();
+      }
+    });
+
+    if (enterBtn) {
+      enterBtn.addEventListener('click', function() {
+        if (isValidEmail(input.value)) submit();
+      });
     }
 
     function submit() {
-      if (!input) return;
-      var email = input.value.trim();
-      if (!isValidEmail(email)) {
-        showMessage('Please enter a valid email.');
+      var email = input.value;
+      if (isPlaceholder || !isValidEmail(email)) {
+        updateState();
         return;
       }
 
-      setSubmitting(true);
-      startSubmittingMessage();
+      if (wrapper) {
+        wrapper.style.transition = 'opacity 0.25s ease';
+        wrapper.style.opacity = '0';
+      }
+      setTimeout(function() {
+        if (wrapper) wrapper.style.visibility = 'hidden';
+        if (messageEl) {
+          showAnimatedMessage('Storing at the speed of light');
+        }
+      }, 250);
 
       fetch('https://script.google.com/macros/s/AKfycbxtaYo7U3mpdwBnfl3O735PTKySaypH3JbYczz4tLJ7je-qBRgjQrZS0ZyB6bMRwt-4cQ/exec', {
         method: 'POST',
@@ -156,26 +241,51 @@
         body: JSON.stringify({ email: email })
       })
       .then(function() {
-        stopSubmittingMessage();
-        if (input) input.value = '';
-        setSubmitted();
+        showAnimatedMessage('Welcome aboard');
       })
       .catch(function() {
-        stopSubmittingMessage();
-        setSubmitting(false);
-        showMessage('Something went wrong');
+        showAnimatedMessage('Something went wrong');
+        setTimeout(function() {
+          if (wrapper) {
+            wrapper.style.visibility = 'visible';
+            wrapper.style.opacity = '1';
+          }
+          if (messageEl) {
+            messageEl.hidden = true;
+            messageEl.classList.remove('valid');
+          }
+          updateState();
+        }, 2000);
       });
     }
 
-    form.addEventListener('submit', function(event) {
-      event.preventDefault();
-      event.stopPropagation();
-      submit();
-    });
+    function showAnimatedMessage(text) {
+      if (!messageEl) return;
+      clearElement(messageEl);
+      var fragment = document.createDocumentFragment();
+      text.split('').forEach(function(c, i) {
+        var span = document.createElement('span');
+        span.className = 'updates-char';
+        span.style.animationDelay = (i * 30) + 'ms';
+        span.textContent = c;
+        fragment.appendChild(span);
+      });
+      messageEl.appendChild(fragment);
+      messageEl.classList.add('valid');
+      messageEl.hidden = false;
+    }
+
+    // Initialize: cursor visible if placeholder
+    updateState();
+    if (isPlaceholder) {
+      showCursor();
+    } else {
+      hideCursor();
+    }
   }
 
-  initSubscribeForm();
-  document.body.addEventListener('htmx:afterSettle', initSubscribeForm);
+  initUpdatesForm();
+  document.body.addEventListener('htmx:afterSettle', initUpdatesForm);
 })();
 
 // WebGL ocean rendering (runs once)
@@ -759,10 +869,10 @@ function buildFragmentShader(quality) {
   vec3 getRay(vec2 fragCoord) {
     vec2 uv = ((fragCoord.xy / iResolution.xy) * 2.0 - 1.0) * vec2(iResolution.x / iResolution.y, 1.0);
     vec3 proj = normalize(vec3(uv.x, uv.y, 1.5));
-    // Fixed camera angle (no mouse movement) - tilted down to show only water
-    // u_cameraTiltOffset adds additional downward tilt (negative = look down more)
-    return createRotationMatrixAxisAngle(vec3(0.0, -1.0, 0.0), 0.0) 
-      * createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), -0.05 + u_cameraTiltOffset)
+    // Fixed camera angle (no mouse movement) - tilted up to show more sky
+    // u_cameraTiltOffset adds additional tilt (negative = look down more)
+    return createRotationMatrixAxisAngle(vec3(0.0, -1.0, 0.0), 0.0)
+      * createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), 0.14 + u_cameraTiltOffset)
       * proj;
   }
 
@@ -1263,11 +1373,11 @@ function screenToWaterHit(clientX, clientY, time) {
   const len = Math.hypot(rayX, rayY, rayZ);
   rayX /= len; rayY /= len; rayZ /= len;
   
-  // Apply camera tilt (-0.05 + cameraTiltOffset radians around X axis)
+  // Apply camera tilt (0.08 + cameraTiltOffset radians around X axis)
   // Rotation matrix formula (matches GLSL shader):
   // newY = cos(a)*y + sin(a)*z
   // newZ = -sin(a)*y + cos(a)*z
-  const tiltAngle = -0.05 + cameraTiltOffset;
+  const tiltAngle = 0.14 + cameraTiltOffset;
   const cosTilt = Math.cos(tiltAngle);
   const sinTilt = Math.sin(tiltAngle);
   const newY = rayY * cosTilt + rayZ * sinTilt;
@@ -1325,8 +1435,8 @@ function screenPosToSkyUV(screenX, screenY, aspect) {
   let rayY = projY / projLen;
   let rayZ = projZ / projLen;
 
-  // Apply camera tilt (-0.05 + cameraTiltOffset radians around X axis)
-  const tiltAngle = -0.05 + cameraTiltOffset;
+  // Apply camera tilt (0.08 + cameraTiltOffset radians around X axis)
+  const tiltAngle = 0.14 + cameraTiltOffset;
   const cosTilt = Math.cos(tiltAngle);
   const sinTilt = Math.sin(tiltAngle);
   const rotatedY = rayY * cosTilt + rayZ * sinTilt;

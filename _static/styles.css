@@ -76,7 +76,7 @@ canvas.shader-ready { opacity: 1; }
   right: 36px;
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: flex-start;
   gap: 12px;
   z-index: 10;
@@ -85,6 +85,10 @@ canvas.shader-ready { opacity: 1; }
 
 .logo-stack .logo-link {
   pointer-events: auto;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .logo-stack .logo-links {
@@ -93,14 +97,6 @@ canvas.shader-ready { opacity: 1; }
 
 .logo-stack .logo-links a {
   pointer-events: auto;
-}
-
-.logo-stack .logo-link {
-  order: 2;
-}
-
-.logo-stack .logo-links {
-  order: 1;
 }
 
 .logo-link {
@@ -123,10 +119,9 @@ canvas.shader-ready { opacity: 1; }
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: flex-start;
-  width: 100%;
+  align-items: flex-end;
   opacity: 0;
-  margin-top: 20px;
+  margin-top: 0;
 }
 
 .loaded .logo-links,
@@ -156,7 +151,9 @@ canvas.shader-ready { opacity: 1; }
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-left: 16px;
+  padding-left: 0;
+  padding-right: 16px;
+  align-items: flex-end;
 }
 
 .updates-child {
@@ -182,10 +179,6 @@ canvas.shader-ready { opacity: 1; }
     right: 24px;
   }
 
-  .logo-links {
-    margin-top: -4px;
-  }
-
   .main-logo {
     width: 210px;
     max-width: calc(65vw * 0.7);
@@ -196,24 +189,23 @@ canvas.shader-ready { opacity: 1; }
   .logo-stack {
     top: 22px;
     left: 20px;
-    right: auto;
-    flex-direction: column;
-    align-items: flex-start;
+    right: 20px;
   }
 
-  .logo-stack .logo-link,
-  .logo-stack .logo-links {
-    order: 0;
+  .logo-stack .logo-link {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
   }
 
   .logo-links {
-    width: auto;
-    margin-top: 10px;
-    padding-left: 20px;
+    align-items: flex-end;
   }
 
   .updates-children {
-    padding-left: 32px;
+    padding-left: 0;
+    padding-right: 16px;
   }
 }
 
@@ -296,8 +288,7 @@ canvas.shader-ready { opacity: 1; }
 }
 
 .updates-dismiss:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-weight: 700;
 }
 
 .email-meta {
@@ -340,81 +331,181 @@ canvas.shader-ready { opacity: 1; }
   cursor: url('/static/cursor-dark.svg') 12 12, pointer;
 }
 
-.subscribe-form {
+/* Updates page email form styles */
+.updates-form-area {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 4em;
   margin: 24px 0;
 }
 
-.subscribe-input-wrapper {
+.updates-input-container {
   position: relative;
-  display: inline-block;
-  width: 28ch;
-  max-width: 100%;
-  line-height: 1.6;
-  letter-spacing: 0;
-}
-
-.subscribe-underline {
-  display: block;
-  color: rgba(25, 24, 22, 0.5);
-  pointer-events: none;
-  user-select: none;
-  letter-spacing: 0;
-}
-
-.subscribe-input {
-  position: absolute;
-  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   width: 100%;
+  min-height: 2em;
+}
+
+.updates-input-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  cursor: text;
+}
+
+.updates-input {
   background: transparent;
   border: none;
   outline: none;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
   color: inherit;
-  cursor: text;
-  caret-color: currentColor;
-  letter-spacing: 0;
-  padding: 0;
-  margin: 0;
-  line-height: inherit;
-  box-sizing: content-box;
-  appearance: none;
+  caret-color: rgba(25, 24, 22, 0.8);
+  cursor: inherit;
+  -webkit-user-select: text;
+  user-select: text;
+  text-align: left;
+  width: auto;
+  min-width: 280px;
 }
 
-.subscribe-button {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
+.updates-input.placeholder-text {
+  color: rgba(25, 24, 22, 0.5);
+}
+
+.updates-input.has-display {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.updates-display {
+  font-size: inherit;
+  font-family: inherit;
+  line-height: 1.6;
   color: inherit;
-  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
 }
 
-.subscribe-button:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.updates-display .updates-char,
+.updates-message .updates-char {
+  color: inherit;
+  white-space: pre;
 }
 
-.subscribe-message {
-  margin: 16px 0 0;
-  opacity: 0.85;
-  font-variant-ligatures: none;
-  font-feature-settings: "liga" 0;
+.updates-display.valid .updates-char,
+.updates-message.valid .updates-char {
+  animation: char-glow 0.3s ease forwards;
 }
 
-.subscribe-form.is-hidden {
+.updates-cursor {
+  position: absolute;
+  left: 0;
+  transform: none;
+  width: 1px;
+  height: 1.1em;
+  background: rgba(25, 24, 22, 0.8);
   display: none;
 }
 
-.theme-night .subscribe-underline {
+.updates-cursor.visible {
+  display: block;
+  animation: cursor-blink 1s step-end infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { visibility: visible; }
+  50% { visibility: hidden; }
+}
+
+.updates-placeholder {
+  color: rgba(25, 24, 22, 0.5);
+}
+
+@keyframes char-glow {
+  from { opacity: 0.6; }
+  to { opacity: 1; font-weight: 700; }
+}
+
+.updates-input::selection,
+.updates-input:focus::selection {
+  background: rgba(25, 24, 22, 0.2);
+  color: inherit;
+}
+
+.updates-enter {
+  margin-left: 0.5em;
+  font-size: 0.9em;
+  position: relative;
+  top: 2px;
+  color: rgba(25, 24, 22, 0.6);
+  cursor: url('/static/cursor-dark.svg') 12 12, pointer;
+  transition: color 0.2s ease;
+}
+
+.updates-enter:hover {
+  color: rgba(25, 24, 22, 1);
+}
+
+.updates-message {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: inherit;
+  color: inherit;
+  margin: 0;
+  white-space: nowrap;
+  opacity: 0;
+  animation: fade-in 0.6s ease forwards;
+}
+
+.updates-message:not([hidden]) {
+  display: flex;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Theme night overrides for updates form */
+.theme-night .updates-input {
+  caret-color: rgba(240, 240, 240, 0.8);
+}
+
+.theme-night .updates-input.placeholder-text {
   color: rgba(240, 240, 240, 0.45);
 }
 
-.theme-night .subscribe-button {
+.theme-night .updates-cursor {
+  background: rgba(240, 240, 240, 0.8);
+}
+
+.theme-night .updates-placeholder {
+  color: rgba(240, 240, 240, 0.45);
+}
+
+.theme-night .updates-enter {
+  color: rgba(240, 240, 240, 0.6);
   cursor: url('/static/cursor-light.svg') 12 12, pointer;
+}
+
+.theme-night .updates-enter:hover {
+  color: rgba(240, 240, 240, 1);
+}
+
+@media (max-width: 800px) {
+  .updates-input {
+    min-width: 240px;
+  }
 }
 
 .theme-night .letter-body a {

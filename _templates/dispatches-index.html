@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+
+{% block body %}
+  <div class="updates-overlay" aria-hidden="true">
+    <div class="updates-letter" role="dialog" aria-label="Earendil dispatches">
+      <a class="updates-dismiss" href="{{ dismiss_url }}" aria-label="Dismiss" data-dismiss-url="{{ dismiss_url }}">[close]</a>
+      <div class="letter-body">
+        <p>Dispatches from Earendil.</p>
+        {% if dispatches %}
+        <ul class="dispatches-list">
+          {% for dispatch in dispatches %}
+          <li><a href="{{ dispatch.slug }}">{{ dispatch.title }}</a></li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        <p><a href="/dispatches/subscribe/">[Subscribe]</a></p>
+      </div>
+    </div>
+  </div>
+{% endblock %}

@@ -15,5 +15,3 @@ aria_label: Earendil purpose
 <span class="mono-bold">Bridge division and ignorance</span><br>Humanity is a community. We choose to look to our commonalities rather than our differences. We look to ground ourselves in truth and share truth with one another.
 
 <span class="mono-bold">Cultivate lasting joy and understanding</span><br>Our products seek to bring people lasting joy and greater mutual understanding.
-
-With care,<br>Colin Hanna and Armin Ronacher

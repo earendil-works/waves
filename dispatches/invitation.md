@@ -1,7 +1,7 @@
 ---
 title: An Invitation to Stay Informed
 template: updates
-aria_label: Earendil updates
+aria_label: Earendil dispatches
 from: Earendil Inc. Founders <founders@earendil.com>
 to: You
 date: Sun, 18 Jan 2026 18:17:19 +0100
@@ -12,7 +12,7 @@ Hello,
 
 We believe in building in the open — sharing what we learn, what we craft, and where we're headed. If you're curious about software that strengthens human agency and bridges understanding, we'd love to have you along for the journey.
 
-<a href="/updates/subscribe">[Subscribe to updates]</a> and we'll send occasional dispatches: honest reflections on what we're building, why it matters, and the open protocols we're shaping together.
+<a href="/dispatches/subscribe">[Subscribe to dispatches]</a> and we'll send occasional dispatches: honest reflections on what we're building, why it matters, and the open protocols we're shaping together.
 
 No noise, just signal.
 
