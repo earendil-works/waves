@@ -12,6 +12,7 @@ import threading
 import time
 import traceback
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Callable, Tuple
@@ -61,6 +62,18 @@ def render_markdown(text: str) -> str:
     return md_lib.markdown(text, extensions=["extra"])
 
 
+def format_day_from_date(date_str: str) -> str:
+    if not date_str:
+        return ""
+    try:
+        parsed = parsedate_to_datetime(date_str)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.strftime("%a, %d %b %Y")
+    except (TypeError, ValueError):
+        return date_str
+
+
 def slug_for_path(path: Path) -> str:
     rel = path.relative_to(ROOT)
     if rel.name == "_index.md":
@@ -108,8 +121,6 @@ def iter_markdown_files() -> list[Path]:
 
 def collect_update_entries() -> list[dict[str, Any]]:
     """Collect update files with metadata and rendered content."""
-    from email.utils import parsedate_to_datetime
-
     updates_dir = ROOT / "posts"
     updates = []
     if not updates_dir.exists():
@@ -295,10 +306,13 @@ def build_to(build_dir: Path) -> None:
             dismiss_url = "/posts/"
         else:
             dismiss_url = "/"
+        page = dict(frontmatter)
+        if "date" in page:
+            page["date_day"] = format_day_from_date(page.get("date", ""))
         rendered = env.render_template(
             template_name,
             title=frontmatter.get("title", "Earendil"),
-            page=frontmatter,
+            page=page,
             content=safe(html_body),
             slug=slug,
             posts=updates,
