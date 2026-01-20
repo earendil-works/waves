@@ -401,15 +401,6 @@ canvas.shader-ready { opacity: 1; }
   margin: 24px 0;
 }
 
-.updates-input-container {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  width: 100%;
-  min-height: 2em;
-}
-
 .updates-input-wrapper {
   position: relative;
   display: inline-flex;
@@ -431,65 +422,55 @@ canvas.shader-ready { opacity: 1; }
   -webkit-user-select: text;
   user-select: text;
   text-align: left;
-  width: auto;
-  min-width: 280px;
 }
 
 .updates-input.placeholder-text {
   color: rgba(25, 24, 22, 0.5);
 }
 
-.updates-input.has-display {
+.updates-input.valid-glow {
+  background: linear-gradient(90deg, 
+    #fff 0%,
+    #fff 40%,
+    currentColor 60%,
+    currentColor 100%
+  );
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-sweep 0.72s ease forwards;
+}
+
+@keyframes text-sweep {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+
+.updates-message.valid {
+  background: linear-gradient(90deg, 
+    #fff 0%,
+    #fff 40%,
+    currentColor 60%,
+    currentColor 100%
+  );
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-sweep 0.72s ease forwards;
+}
+
+.updates-measure {
   position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.updates-display {
-  font-size: inherit;
-  font-family: inherit;
-  line-height: 1.6;
-  color: inherit;
-}
-
-.updates-display .updates-char,
-.updates-message .updates-char {
-  color: inherit;
+  visibility: hidden;
   white-space: pre;
-}
-
-.updates-display.valid .updates-char,
-.updates-message.valid .updates-char {
-  animation: char-glow 0.3s ease forwards;
-}
-
-.updates-cursor {
-  position: absolute;
-  left: 0;
-  transform: none;
-  width: 1px;
-  height: 1.1em;
-  background: rgba(25, 24, 22, 0.8);
-  display: none;
-}
-
-.updates-cursor.visible {
-  display: block;
-  animation: cursor-blink 1s step-end infinite;
-}
-
-@keyframes cursor-blink {
-  0%, 100% { visibility: visible; }
-  50% { visibility: hidden; }
-}
-
-.updates-placeholder {
-  color: rgba(25, 24, 22, 0.5);
-}
-
-@keyframes char-glow {
-  from { color: inherit; }
-  to { color: #fff; }
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
+  pointer-events: none;
 }
 
 .updates-input::selection,
@@ -499,8 +480,7 @@ canvas.shader-ready { opacity: 1; }
 }
 
 .updates-enter {
-  margin-left: 0.5em;
-  font-size: 0.9em;
+  margin-left: 0;
   position: relative;
   top: 2px;
   color: rgba(25, 24, 22, 0.6);
@@ -513,26 +493,17 @@ canvas.shader-ready { opacity: 1; }
 }
 
 .updates-message {
-  position: absolute;
-  inset: 0;
   display: none;
-  align-items: center;
-  justify-content: flex-start;
   font-size: inherit;
+  font-family: inherit;
+  line-height: 1.6;
   color: inherit;
   margin: 0;
   white-space: nowrap;
-  opacity: 0;
-  animation: fade-in 0.6s ease forwards;
 }
 
 .updates-message:not([hidden]) {
-  display: flex;
-}
-
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  display: block;
 }
 
 /* Theme night overrides for updates form */
@@ -544,13 +515,7 @@ canvas.shader-ready { opacity: 1; }
   color: rgba(240, 240, 240, 0.45);
 }
 
-.theme-night .updates-cursor {
-  background: rgba(240, 240, 240, 0.8);
-}
 
-.theme-night .updates-placeholder {
-  color: rgba(240, 240, 240, 0.45);
-}
 
 .theme-night .updates-enter {
   color: rgba(240, 240, 240, 0.6);
@@ -561,10 +526,19 @@ canvas.shader-ready { opacity: 1; }
   color: rgba(240, 240, 240, 1);
 }
 
-@media (max-width: 800px) {
-  .updates-input {
-    min-width: 240px;
-  }
+.theme-night .updates-input.valid-glow {
+  background: linear-gradient(90deg, 
+    #fff 0%,
+    #fff 40%,
+    currentColor 60%,
+    currentColor 100%
+  );
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-sweep 0.72s ease forwards;
 }
 
 .theme-night .letter-body a {

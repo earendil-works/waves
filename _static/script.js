@@ -81,11 +81,6 @@
 
 // Subscribe form handling (updates page email flow)
 (function() {
-  function clearElement(el) {
-    if (!el) return;
-    while (el.firstChild) el.removeChild(el.firstChild);
-  }
-
   function initUpdatesForm() {
     var form = document.querySelector('[data-subscribe-form]');
     if (!form || form.dataset.initialized) return;
@@ -94,13 +89,25 @@
     var input = document.getElementById('updates-email');
     if (!input) return;
 
-    var display = document.getElementById('updates-display');
-    var cursor = document.getElementById('updates-cursor');
     var enterBtn = document.getElementById('updates-enter');
     var messageEl = document.getElementById('updates-message');
     var wrapper = form.querySelector('.updates-input-wrapper');
     var isPlaceholder = input.value === '';
-    var lastValidValue = '';
+    var wasValid = false;
+
+    // Create hidden measuring element for auto-sizing
+    var measure = document.createElement('span');
+    measure.className = 'updates-measure';
+    measure.setAttribute('aria-hidden', 'true');
+    wrapper.appendChild(measure);
+
+    function updateInputWidth() {
+      var text = input.value || input.placeholder || '';
+      measure.textContent = text;
+      // Add a small buffer for the caret
+      var width = measure.offsetWidth + 2;
+      input.style.width = width + 'px';
+    }
 
     // Valid email: user@domain.tld where tld has 2+ chars after final dot
     function isValidEmail(email) {
@@ -113,71 +120,53 @@
       return tld.length >= 2;
     }
 
-    function showAnimatedDisplay(val) {
-      if (!display) return;
-      clearElement(display);
-      var fragment = document.createDocumentFragment();
-      val.split('').forEach(function(c, i) {
-        var span = document.createElement('span');
-        span.className = 'updates-char';
-        span.style.animationDelay = (i * 30) + 'ms';
-        span.textContent = c;
-        fragment.appendChild(span);
-      });
-      display.appendChild(fragment);
-      display.hidden = false;
-      display.classList.add('valid');
-      input.classList.add('has-display');
-      lastValidValue = val;
+    function showValidGlow() {
+      // Remove and re-add to restart animation
+      input.classList.remove('valid-glow');
+      void input.offsetWidth; // Force reflow
+      input.classList.add('valid-glow');
     }
 
-    function hideAnimatedDisplay() {
-      if (!display) return;
-      display.hidden = true;
-      display.classList.remove('valid');
-      input.classList.remove('has-display');
-      lastValidValue = '';
+    function hideValidGlow() {
+      input.classList.remove('valid-glow');
     }
 
     function updateState() {
       var val = input.value;
       var isEmpty = val === '';
+      var isValid = isValidEmail(val);
+
+      updateInputWidth();
 
       if (isEmpty) {
         isPlaceholder = true;
         input.classList.add('placeholder-text');
-        hideAnimatedDisplay();
+        hideValidGlow();
         if (enterBtn) enterBtn.hidden = true;
-      } else if (isValidEmail(val)) {
+        wasValid = false;
+      } else if (isValid) {
         isPlaceholder = false;
         input.classList.remove('placeholder-text');
-        if (val !== lastValidValue) {
-          showAnimatedDisplay(val);
+        // Trigger glow animation when becoming valid
+        if (!wasValid) {
+          showValidGlow();
         }
         if (enterBtn) enterBtn.hidden = false;
+        wasValid = true;
       } else {
         isPlaceholder = false;
         input.classList.remove('placeholder-text');
-        hideAnimatedDisplay();
+        hideValidGlow();
         if (enterBtn) enterBtn.hidden = true;
+        wasValid = false;
       }
-    }
-
-    function showCursor() {
-      if (cursor) cursor.classList.add('visible');
-    }
-
-    function hideCursor() {
-      if (cursor) cursor.classList.remove('visible');
     }
 
     input.addEventListener('focus', function() {
-      hideCursor();
-      if (enterBtn) enterBtn.hidden = true;
-      if (!isPlaceholder) {
-        input.classList.remove('has-display');
-        hideAnimatedDisplay();
-      }
+      hideValidGlow();
+      // Keep wasValid in sync so we don't replay animation
+      wasValid = isValidEmail(input.value);
+      updateState();
     });
 
     input.addEventListener('input', function() {
@@ -187,13 +176,14 @@
     input.addEventListener('blur', function() {
       if (input.value === '') {
         isPlaceholder = true;
-        hideAnimatedDisplay();
+        hideValidGlow();
         input.classList.add('placeholder-text');
-        showCursor();
         if (enterBtn) enterBtn.hidden = true;
+        wasValid = false;
       } else if (isValidEmail(input.value)) {
-        showAnimatedDisplay(input.value);
+        showValidGlow();
         if (enterBtn) enterBtn.hidden = false;
+        wasValid = true;
       }
     });
 
@@ -228,7 +218,7 @@
         wrapper.style.opacity = '0';
       }
       setTimeout(function() {
-        if (wrapper) wrapper.style.visibility = 'hidden';
+        if (wrapper) wrapper.style.display = 'none';
         if (messageEl) {
           showAnimatedMessage('Storing at the speed of light');
         }
@@ -247,7 +237,7 @@
         showAnimatedMessage('Something went wrong');
         setTimeout(function() {
           if (wrapper) {
-            wrapper.style.visibility = 'visible';
+            wrapper.style.display = '';
             wrapper.style.opacity = '1';
           }
           if (messageEl) {
@@ -261,27 +251,15 @@
 
     function showAnimatedMessage(text) {
       if (!messageEl) return;
-      clearElement(messageEl);
-      var fragment = document.createDocumentFragment();
-      text.split('').forEach(function(c, i) {
-        var span = document.createElement('span');
-        span.className = 'updates-char';
-        span.style.animationDelay = (i * 30) + 'ms';
-        span.textContent = c;
-        fragment.appendChild(span);
-      });
-      messageEl.appendChild(fragment);
+      messageEl.textContent = text;
+      messageEl.classList.remove('valid');
+      void messageEl.offsetWidth; // Force reflow to restart animation
       messageEl.classList.add('valid');
       messageEl.hidden = false;
     }
 
-    // Initialize: cursor visible if placeholder
+    // Initialize
     updateState();
-    if (isPlaceholder) {
-      showCursor();
-    } else {
-      hideCursor();
-    }
 
     // Auto-focus the email input
     input.focus();
