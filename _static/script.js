@@ -737,7 +737,7 @@ function buildFragmentShader(quality) {
   mat3 createRotationMatrixAxisAngle(vec3 axis, float angle);
 
   vec2 dirToScreenUV(vec3 dir) {
-    vec3 unrotated = createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), 0.05) * dir;
+    vec3 unrotated = createRotationMatrixAxisAngle(vec3(1.0, 0.0, 0.0), -(0.14 + u_cameraTiltOffset)) * dir;
     if (unrotated.z <= 0.0) return vec2(-1.0);
     vec2 uv = (unrotated.xy / unrotated.z) * 1.5;
     vec2 ndc = uv / vec2(iResolution.x / iResolution.y, 1.0);
@@ -746,17 +746,20 @@ function buildFragmentShader(quality) {
 
   float star(vec2 screenUv, vec2 cellId, vec2 grid) {
     float rnd = hash21(cellId);
-    if (rnd > 0.9) return 0.0;
+    if (rnd > 0.8) return 0.0;
     vec2 starPos = vec2(hash21(cellId + 0.1), hash21(cellId + 0.2));
     vec2 starUv = (cellId + starPos) / grid;
     vec2 deltaPx = (screenUv - starUv) * iResolution.xy;
-    float sizePx = 0.3 + hash21(cellId + 0.3) * 0.25;
+    float sizePx = 0.25 + hash21(cellId + 0.3) * 0.45;
     float d = length(deltaPx);
     float core = smoothstep(sizePx, sizePx * 0.2, d);
     float flickerPhase = hash21(cellId + 0.4) * 6.28318;
     float flickerSpeed = 0.2 + hash21(cellId + 0.5) * 0.3;
-    float flicker = 0.75 + 0.25 * sin(iTime * flickerSpeed + flickerPhase);
-    return core * flicker;
+    float flickerAmount = mix(0.1, 0.35, hash21(cellId + 0.7));
+    float flicker = mix(1.0 - flickerAmount, 1.0 + flickerAmount, 0.5 + 0.5 * sin(iTime * flickerSpeed + flickerPhase));
+    float lumens = mix(1.0, 12.0, hash21(cellId + 0.6));
+    float brightness = mix(0.6, 1.4, lumens / 12.0);
+    return core * flicker * brightness;
   }
 
   vec2 wavedx(vec2 position, vec2 direction, float frequency, float timeshift) {
