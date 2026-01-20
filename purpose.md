@@ -4,9 +4,9 @@ template: page
 aria_label: Earendil purpose
 ---
 
-<a href="/" class="mono-bold">Earendil</a> is a public benefit corporation founded by <a href="https://mitsuhiko.at/" target="_blank" rel="noopener noreferrer">Armin Ronacher</a> and <a href="https://c01.in/" target="_blank" rel="noopener noreferrer">Colin Daymond Hanna</a>.
+<a href="/" class="mono-bold">Earendil</a> is a public benefit corporation founded by <a href="https://mitsuhiko.at/" target="_blank" rel="noopener noreferrer">Armin Ronacher</a> and <a href="https://c01.in/" target="_blank" rel="noopener noreferrer">Colin Daymond Hanna</a>
 
-<span class="mono-caps mono-bold">Our purpose is embedded in our founding charter:</span>
+<span class="mono-bold">Our purpose is embedded in our founding charter:</span>
 
 <span class="mono-bold">Craft software and open protocols</span><br>We believe in craft and we believe in open. Software shapes how information is understood and increasingly, how reality is perceived. That comes with responsibility.
 

@@ -8,12 +8,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/fonts/berkeley-mono.css">
+  <link rel="stylesheet" href="/static/fonts/louize.css">
   <link rel="stylesheet" href="/static/styles.css">
-  <link href="/dispatches/feed.atom" rel="alternate" title="Earendil Dispatches" type="application/atom+xml">
-  <link href="/dispatches/feed.rss" rel="alternate" title="Earendil Dispatches" type="application/rss+xml">
+  <link href="/dispatch/feed.atom" rel="alternate" title="Earendil Dispatch" type="application/atom+xml">
+  <link href="/dispatch/feed.rss" rel="alternate" title="Earendil Dispatch" type="application/rss+xml">
 </head>
 <body hx-boost="true" hx-ext="head-support" hx-select="div.page" hx-target="div.page" hx-swap="outerHTML" class="{% if slug != "/" %}skip-intro{% endif %}">
   <div id="fps">FPS: --</div>
+  <div id="site-footer">2026 EARENDIL INC.</div>
   <button id="theme-toggle" type="button" aria-label="Toggle color theme"><span class="value"></span></button>
 
   <div class="page" hx-history-elt{% block page_attrs %}{% endblock %}>
@@ -22,7 +24,7 @@
       <div class="logo-links">
         <a class="updates-link" href="/purpose/">Purpose</a>
         <a class="updates-link" href="/join/">Join Us</a>
-        <a class="updates-link" href="/dispatches/">Dispatches</a>
+        <a class="updates-link" href="/dispatch/">Dispatch</a>
         <a class="updates-link" href="https://github.com/earendil-works/" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
     </div>

@@ -110,7 +110,7 @@ def collect_update_entries() -> list[dict[str, Any]]:
     """Collect update files with metadata and rendered content."""
     from email.utils import parsedate_to_datetime
 
-    updates_dir = ROOT / "dispatches"
+    updates_dir = ROOT / "dispatch"
     updates = []
     if not updates_dir.exists():
         return updates
@@ -230,27 +230,27 @@ def build_update_feeds(updates, build_dir: Path) -> None:
     if not updates:
         return
     recent_updates = updates[:UPDATES_FEED_LIMIT]
-    dispatches_dir = build_dir / "dispatches"
-    dispatches_dir.mkdir(parents=True, exist_ok=True)
+    dispatch_dir = build_dir / "dispatch"
+    dispatch_dir.mkdir(parents=True, exist_ok=True)
 
-    atom_feed_url = SITE_URL.rstrip("/") + "/dispatches/feed.atom"
-    rss_feed_url = SITE_URL.rstrip("/") + "/dispatches/feed.rss"
+    atom_feed_url = SITE_URL.rstrip("/") + "/dispatch/feed.atom"
+    rss_feed_url = SITE_URL.rstrip("/") + "/dispatch/feed.rss"
 
     atom_xml = _generate_atom_feed(
-        title="Earendil Dispatches",
+        title="Earendil Dispatch",
         feed_url=atom_feed_url,
-        subtitle="Dispatches from Earendil",
+        subtitle="Dispatch from Earendil",
         updates=recent_updates,
     )
-    (dispatches_dir / "feed.atom").write_text(atom_xml, encoding="utf-8")
+    (dispatch_dir / "feed.atom").write_text(atom_xml, encoding="utf-8")
 
     rss_xml = _generate_rss_feed(
-        title="Earendil Dispatches",
+        title="Earendil Dispatch",
         feed_url=rss_feed_url,
-        subtitle="Dispatches from Earendil",
+        subtitle="Dispatch from Earendil",
         updates=recent_updates,
     )
-    (dispatches_dir / "feed.rss").write_text(rss_xml, encoding="utf-8")
+    (dispatch_dir / "feed.rss").write_text(rss_xml, encoding="utf-8")
 
 
 
@@ -291,8 +291,8 @@ def build_to(build_dir: Path) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         slug = slug_for_path(md_path)
         # Compute dismiss URL (parent directory)
-        if slug.startswith("/dispatches/") and slug != "/dispatches/":
-            dismiss_url = "/dispatches/"
+        if slug.startswith("/dispatch/") and slug != "/dispatch/":
+            dismiss_url = "/dispatch/"
         else:
             dismiss_url = "/"
         rendered = env.render_template(
@@ -302,7 +302,7 @@ def build_to(build_dir: Path) -> None:
             content=safe(html_body),
             slug=slug,
             dispatches=updates,
-            is_dispatches_section=slug.startswith("/dispatches/"),
+            is_dispatch_section=slug.startswith("/dispatch/"),
             dismiss_url=dismiss_url,
         )
         output_path.write_text(rendered)

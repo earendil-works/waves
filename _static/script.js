@@ -282,6 +282,9 @@
     } else {
       hideCursor();
     }
+
+    // Auto-focus the email input
+    input.focus();
   }
 
   initUpdatesForm();

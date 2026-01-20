@@ -32,6 +32,17 @@ canvas.shader-ready { opacity: 1; }
 #fps { position: fixed; top: 10px; left: 10px; color: white; font: 16px monospace; background: rgba(0,0,0,0.5); padding: 5px 10px; z-index: 100; display: none; }
 #fps.visible { display: block; }
 
+#site-footer {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  color: rgba(255, 255, 255, 0.95);
+  font: 14px/1 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
+  padding: 6px 10px;
+  z-index: 120;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
 #theme-toggle {
   position: fixed;
   bottom: 20px;
@@ -237,12 +248,12 @@ canvas.shader-ready { opacity: 1; }
 
 .updates-letter {
   position: relative;
-  width: min(780px, 92vw);
+  width: min(1000px, 92vw);
   margin: auto 0;
   padding: 78px 70px 72px;
   box-sizing: border-box;
   pointer-events: auto;
-  background: url('/static/paper.png') center/256px 256px;
+  background: linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08)), url('/static/paper.png') center/256px 256px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(25, 20, 12, 0.2);
   font: 15px/1.5 'Berkeley Mono', 'SFMono-Regular', ui-monospace, monospace;
@@ -288,7 +299,11 @@ canvas.shader-ready { opacity: 1; }
 }
 
 .updates-dismiss:hover {
-  font-weight: 700;
+  color: #fff;
+}
+
+.theme-night .updates-dismiss:hover {
+  color: #fff;
 }
 
 .email-meta {
@@ -322,6 +337,14 @@ canvas.shader-ready { opacity: 1; }
   content: "•";
   position: absolute;
   left: 0;
+}
+
+.dispatches-list li {
+  padding-left: 0;
+}
+
+.dispatches-list li::before {
+  content: none;
 }
 
 .letter-body a {
@@ -429,8 +452,8 @@ canvas.shader-ready { opacity: 1; }
 }
 
 @keyframes char-glow {
-  from { opacity: 0.6; }
-  to { opacity: 1; font-weight: 700; }
+  from { color: inherit; }
+  to { color: #fff; }
 }
 
 .updates-input::selection,
@@ -513,7 +536,12 @@ canvas.shader-ready { opacity: 1; }
 }
 
 .letter-body a:hover {
-  text-decoration: underline;
+  color: #fff;
+  text-decoration: none;
+}
+
+.theme-night .letter-body a:hover {
+  color: #fff;
 }
 
 .letter-footer {
@@ -542,7 +570,12 @@ canvas.shader-ready { opacity: 1; }
 }
 
 .letter-footer a:hover {
-  text-decoration: underline;
+  color: #fff;
+  text-decoration: none;
+}
+
+.theme-night .letter-footer a:hover {
+  color: #fff;
 }
 
 .mono-bold {
@@ -596,4 +629,12 @@ canvas.shader-ready { opacity: 1; }
 
 .error-text p {
   margin: 0;
+}
+
+/* Purpose and Join pages - Louize font */
+[data-page="/purpose/"] .letter-body,
+[data-page="/join/"] .letter-body {
+  font-family: 'Louize', 'EB Garamond', Garamond, serif;
+  font-size: 20px;
+  line-height: 1.6;
 }

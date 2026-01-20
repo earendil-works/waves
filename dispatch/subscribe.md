@@ -1,10 +1,10 @@
 ---
-title: Subscribe to dispatches
+title: Subscribe to dispatch
 template: page
-aria_label: Subscribe to Earendil dispatches
+aria_label: Subscribe to Earendil dispatch
 ---
 
-Stay in the loop for new dispatches.
+Hear from Earendil
 
 <div class="updates-form-area" data-subscribe-form>
   <div class="updates-input-container">
@@ -13,7 +13,7 @@ Stay in the loop for new dispatches.
         type="email"
         id="updates-email"
         class="updates-input placeholder-text"
-        placeholder="name@example.com"
+        placeholder="your@email.com"
         autocomplete="email"
         autocapitalize="off"
         autocorrect="off"
@@ -31,5 +31,4 @@ Stay in the loop for new dispatches.
   </div>
 </div>
 
-Atom: <a href="/dispatches/feed.atom">/dispatches/feed.atom</a><br>
-RSS: <a href="/dispatches/feed.rss">/dispatches/feed.rss</a>
+<a href="/dispatch/feed.atom">Atom</a> · <a href="/dispatch/feed.rss">RSS</a>
